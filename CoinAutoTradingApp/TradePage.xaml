@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CoinAutoTradingApp.TradePage"
+             Title="Trade Page">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="7*"/>
+            <RowDefinition Height="3*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Chat ListView -->
+        <Frame BorderColor="Gray" Padding="0" HasShadow="True" Grid.Row="0">
+            <ListView x:Name="ChatListView" ItemsSource="{Binding ChatMessages}" SeparatorVisibility="Default" HasUnevenRows="True">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <StackLayout Orientation="Vertical" HorizontalOptions="FillAndExpand">
+                            <Label Text="{Binding Message}" FontSize="6" FontAttributes="Bold" LineBreakMode="WordWrap" HorizontalOptions="FillAndExpand" VerticalOptions="Start" />
+                        </StackLayout>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Frame>
+
+        <!-- Debug ListView -->
+        <Frame BorderColor="Gray" Padding="0" HasShadow="True" Grid.Row="1">
+            <ListView x:Name="DebugListView" ItemsSource="{Binding DebugMessages}" SeparatorVisibility="Default" HasUnevenRows="True">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <StackLayout Orientation="Vertical" HorizontalOptions="FillAndExpand">
+                            <Label Text="{Binding Message}" FontSize="6" FontAttributes="Bold" LineBreakMode="WordWrap" HorizontalOptions="FillAndExpand" VerticalOptions="Start" />
+                        </StackLayout>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Frame>
+
+        <!-- Buttons for Auto Trading -->
+        <StackLayout Grid.Row="2" Orientation="Horizontal" HorizontalOptions="FillAndExpand" Padding="10" Spacing="10">
+            <Button Text="Start Auto Trading" Clicked="StartTrading" HorizontalOptions="FillAndExpand"/>
+            <Button Text="Stop Auto Trading" Clicked="StopTrading" HorizontalOptions="FillAndExpand"/>
+        </StackLayout>
+    </Grid>
+
+</ContentPage>
