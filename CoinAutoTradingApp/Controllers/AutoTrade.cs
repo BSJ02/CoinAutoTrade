@@ -74,14 +74,12 @@ public partial class TradePage : ContentPage
             double[] ema9 = Calculate.EMAHistory(candles, 9).ToArray();
             double[] ema20 = Calculate.EMAHistory(candles, 20).ToArray();
             double[] ema50 = Calculate.EMAHistory(candles, 50).ToArray();
-            double[] ema200 = Calculate.EMAHistory(candles, 200).ToArray();
+            double[] ema100 = Calculate.EMAHistory(candles, 100).ToArray();
 
             var macd = Calculate.MACD(candles);
             double[] cciHistory = Calculate.CCIHistory(candles).ToArray();
 
             var keltner = Calculate.KeltnerChannel(candles, 20);
-            double keltnerUpper = keltner.keltnerUpper;
-            double keltnerLower = keltner.keltnerLower;
 
             double[] obvHistory = Calculate.OBVHistory(candles).ToArray();
             double[] volumeHistory = Calculate.VolumeHistory(candles).ToArray();
@@ -125,11 +123,10 @@ public partial class TradePage : ContentPage
 
             // 매매
             var tradeType = EvaluateTradeConditions(
-                prevPrice,
-                currPrice,
-                avgPrice,
-                ema9, ema20, ema50, ema200, cciHistory, macd,
-                keltnerUpper, keltnerLower,
+                prevPrice, currPrice, avgPrice,
+                ema9, ema20, ema50, ema100,
+                cciHistory, macd,
+                keltner,
                 obvHistory, volumeHistory,
                 rsi, bollingerBands, adx, di,
                 ichimoku, stochastic,

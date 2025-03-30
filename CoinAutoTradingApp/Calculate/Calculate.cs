@@ -126,8 +126,6 @@ namespace CoinAutoTradingApp.Utilities
         // BollingerBand
         public static (double upperBand, double lowerBand, double movingAverage) BollingerBands(List<CandleMinute> candles, int period = 20, int multiplier = 2)
         {
-            if (candles == null || candles.Count < period) return (0, 0, 0); // 데이터 부족 시 0 반환
-
             double movingAverage = candles.Take(period).Average(c => c.TradePrice);
 
             double sumOfSquares = candles.Take(period).Sum(c => Math.Pow((double)(c.TradePrice - movingAverage), 2));
@@ -371,18 +369,19 @@ namespace CoinAutoTradingApp.Utilities
 
 
         // Keltner Channel
-        public static (double keltnerUpper, double keltnerLower) KeltnerChannel(List<CandleMinute> candles, int period = 20, int atrMultiplier = 2)
+        public static (double upper, double middle, double lower) KeltnerChannel(List<CandleMinute> candles, int period = 20, double atrMultiplier = 1)
         {
-            if (candles.Count < period) return (0, 0); // 데이터 부족 시 0 반환
+            if (candles.Count < period) return (0, 0, 0); // 데이터 부족 시 0 반환
 
-            double ema = EMAHistory(candles, period).Last();
+            double ema = EMAHistory(candles, period).Last();  // 중앙선 (Middle Line)
             double atr = ATRHistory(candles, period).Last();
 
             double keltnerUpper = ema + atrMultiplier * atr;  // 상단 밴드
             double keltnerLower = ema - atrMultiplier * atr;  // 하단 밴드
 
-            return (keltnerUpper, keltnerLower);
+            return (keltnerUpper, ema, keltnerLower);
         }
+
 
 
         // On-Balance Volume (OBV)
