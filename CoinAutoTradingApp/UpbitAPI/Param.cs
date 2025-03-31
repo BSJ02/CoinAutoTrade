@@ -106,6 +106,42 @@ namespace CoinAutoTradingApp.UpbitAPI
             }
 
         }
+
+        public string Delete(string path, Dictionary<string, string> parameters)
+        {
+            StringBuilder queryStringSb = GetQueryString(parameters);
+            var tokenSb = JWT_param(queryStringSb.ToString());
+            var token = tokenSb.ToString();
+
+            // 최종 URL 생성
+            string fullPath = path + "?" + queryStringSb.ToString();
+
+            var client = new RestClient(baseUrl);
+            var request = new RestRequest(fullPath, Method.Delete);
+
+            request.AddHeader("Content-Type", "application/json");
+            request.AddHeader("Authorization", token);
+
+            var response = client.Execute(request);
+
+            try
+            {
+                if (response.IsSuccessful)
+                {
+                    return response.Content;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+
         public StringBuilder GetQueryString(Dictionary<string, string> parameters)
         {
             // Dictionary 형태로 받은 key = value 형태를 

@@ -57,11 +57,11 @@ public partial class TradePage : ContentPage
 
         foreach (var marketData in marketVolumes)
         {
-            var candles = API.GetCandleMinutes(marketData.Market, (MinuteUnit)5, DateTime.UtcNow, 200)
-                             ?.Cast<CandleMinute>()
+            var candles = API.GetCandleDays(marketData.Market, 100)
+                             ?.Cast<CandleDay>()
                              .ToList();
 
-            if (candles != null && candles.Count >= 200)
+            if (candles != null && candles.Count >= 100)
             {
                 validMarkets.Add(marketData.Market);
             }

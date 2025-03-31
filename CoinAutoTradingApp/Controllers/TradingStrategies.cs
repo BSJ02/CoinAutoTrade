@@ -15,11 +15,11 @@ public partial class TradePage : ContentPage
     // 단기 트레이딩 매수 조건
     public bool CheckShortTermBuyCondition((double upper, double middle, double lower) keltner,
                                            (double upperBand, double lowerBand, double movingAverage) bollingerBands,
-                                            double cci, double rsi, List<CandleMinute> candles)
+                                            double cci, double rsi, double atr, List<CandleMinute> minCandles)
     {
-        bool isEmaCondition = candles.Skip(1).Take(3).Min(c => c.LowPrice) <= candles[0].LowPrice;
+        bool isEmaCondition = minCandles.Skip(1).Take(3).Min(c => c.LowPrice) <= minCandles[0].LowPrice;
 
-        bool isCciCondition = cci >= -91 && cci < 40;
+        bool isCciCondition = cci >= -93 && cci < 40;
 
         bool isRsiCondition = rsi >= 30;
 
@@ -28,16 +28,21 @@ public partial class TradePage : ContentPage
 
         for (int i = 1; i <= period; i++)
         {
-            var prevKeltner = Calculate.KeltnerChannel(candles.Skip(i).ToList());
-            var prevBollingerBands = Calculate.BollingerBands(candles.Skip(i).ToList());
+            var prevKeltner = Calculate.KeltnerChannel(minCandles.Skip(i).ToList());
+            var prevBollingerBands = Calculate.BollingerBands(minCandles.Skip(i).ToList());
 
-            isBollingerBandsCoindition = candles[i].LowPrice >= prevBollingerBands.lowerBand &&
-                                         candles[i].HighPrice < Math.Min(prevBollingerBands.movingAverage, prevKeltner.middle);
+            isBollingerBandsCoindition = minCandles[i].LowPrice >= prevBollingerBands.lowerBand &&
+                                         minCandles[i].HighPrice < Math.Min(prevBollingerBands.movingAverage, prevKeltner.middle);
+
+            if (!isBollingerBandsCoindition)
+                return false;
         }
         
-        isBollingerBandsCoindition &= candles[0].TradePrice <= Math.Min(bollingerBands.movingAverage, keltner.middle);
+        isBollingerBandsCoindition &= minCandles[0].TradePrice <= bollingerBands.lowerBand + atr &&
+                                      minCandles[0].LowPrice >= bollingerBands.lowerBand;
 
-        return isEmaCondition && isCciCondition && isBollingerBandsCoindition;
+
+        return isEmaCondition && isCciCondition && isRsiCondition && isBollingerBandsCoindition;
     }
 
     public bool ShouldTakeProfit(double currPrice, double avgPrice, double cci,
@@ -47,17 +52,20 @@ public partial class TradePage : ContentPage
         if (avgPrice <= 5000)
             return false;
 
-        return (cci < 100 && (currPrice >= bollingerBands.upperBand || currPrice >= keltner.upper));
+        return (cci < 100 && currPrice >= Math.Min(bollingerBands.upperBand, keltner.upper)) ||
+               (cci < 5 && currPrice > Math.Max(bollingerBands.movingAverage, keltner.middle));
     }
 
     public bool ShouldStopLoss(double currPrice, double avgPrice, double atr,
-                               double atrMultiplier = 1.5, double stopLossPercentage = 0.026)
+                               (double upperBand, double lowerBand, double movingAverage) bollingerBands,
+                               List<CandleMinute> candles, double atrMultiplier = 1.5, double stopLossPercentage = 0.025)
     {
         if (avgPrice <= 5000)
             return false;
 
         return currPrice <= avgPrice - (atr * atrMultiplier) ||
-               currPrice <= avgPrice * (1 - stopLossPercentage);
+               currPrice <= avgPrice * (1 - stopLossPercentage) ||
+               candles[0].HighPrice < bollingerBands.lowerBand;
     }
 
     public TradeType EvaluateTradeConditions(double prevPrice, double currPrice, double avgPrice, 
@@ -65,15 +73,15 @@ public partial class TradePage : ContentPage
                                              double cci, double atr, double rsi,
                                             (double upper, double middle, double lower) keltner, 
                                             (double upperBand, double lowerBand, double movingAverage) bollingerBands,
-                                             List<CandleMinute> candles, bool isCoinHeld, bool isKRWHeld)
+                                             List<CandleMinute> minCandles, bool isCoinHeld, bool isKRWHeld)
     {
         // (매수)
-        bool isShortTermBuy = CheckShortTermBuyCondition(keltner, bollingerBands, cci, rsi, candles) && isKRWHeld;
+        bool isShortTermBuy = CheckShortTermBuyCondition(keltner, bollingerBands, cci, rsi, atr, minCandles) && isKRWHeld;
         
         // 익절 (매도)
         bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, cci, keltner, bollingerBands) && isCoinHeld;
         // 손절 (매도)
-        bool isStopLoss = ShouldStopLoss(currPrice, avgPrice, atr) && isCoinHeld;
+        bool isStopLoss = ShouldStopLoss(currPrice, avgPrice, atr, bollingerBands, minCandles) && isCoinHeld;
         
         // 매수 및 매도 로직
         if (isStopLoss)

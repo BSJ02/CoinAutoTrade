@@ -123,12 +123,16 @@ namespace CoinAutoTradingApp.UpbitAPI
             }
         }
 
-        public CancelOrder CancelOrder(string uuid)
+        public CancelOrder CancelOrder(string uuid, string identifier = null)
         {
             // 주문 - 주문 취소 접수
-            Dictionary<string, string> parameters = new Dictionary<string, string>();
-            parameters.Add("uuid", uuid);
-            var data = param.Post("/v1/order", parameters, RestSharp.Method.Delete);
+            Dictionary<string, string> parameters = new Dictionary<string, string>
+            {
+                { "uuid", uuid }
+            };
+
+            var data = param.Delete("/v1/order", parameters);
+
             if (data != null)
             {
                 return JsonConvert.DeserializeObject<CancelOrder>(data);
@@ -260,18 +264,18 @@ namespace CoinAutoTradingApp.UpbitAPI
             return JsonConvert.DeserializeObject<List<MarketAll>>(data);
 
         }
-        public List<CandleMinute> GetCandleMinutes(string market, MinuteUnit unit, DateTime? to = null, int count = 1)
+        public List<CandleMinute> GetCandleMinutes(string market, CandleUnit unit, DateTime? to = null, int count = 1)
         {
             // ✅ 'to'가 null이면 현재 시간 기준으로 설정
             DateTime requestTime = to ?? DateTime.UtcNow;
 
             // 시세 캔들 조회 - 분(Minute) 캔들
             Dictionary<string, string> parameters = new Dictionary<string, string>
-    {
-        { "market", market },
-        { "to", requestTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") }, // ✅ 업비트 API에 맞는 UTC 포맷 사용
-        { "count", count.ToString() }
-    };
+            {
+                { "market", market },
+                { "to", requestTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") }, // ✅ 업비트 API에 맞는 UTC 포맷 사용
+                { "count", count.ToString() }
+            };
 
             var data = param.Get($"/v1/candles/minutes/{(int)unit}", parameters, RestSharp.Method.Get);
 
@@ -286,14 +290,19 @@ namespace CoinAutoTradingApp.UpbitAPI
         }
 
 
-        public List<CandleDay> GetCandleDays(string market, DateTime to = default(DateTime), int count = 1)
+        public List<CandleDay> GetCandleDays(string market, int count = 1, DateTime? to = null)
         {
+            DateTime requestTime = to ?? DateTime.UtcNow;
+
             // 시세 캔들 조회 - 일(Day) 캔들
-            Dictionary<string, string> parameters = new Dictionary<string, string>();
-            parameters.Add("market", market);
-            parameters.Add("to", to.ToString("yyyy-MM-dd HH:mm:ss"));
-            parameters.Add("count", count.ToString());
-            var data = param.Get("/v1/candles/days", parameters, RestSharp.Method.Get);
+            Dictionary<string, string> parameters = new Dictionary<string, string>
+            {
+                { "market", market },
+                { "to", requestTime.ToString("yyyy-MM-dd HH:mm:ss") }, // ✅ 업비트 API에 맞는 UTC 포맷 사용
+                { "count", count.ToString()}
+            };
+
+            var data = param.Get($"/v1/candles/days", parameters, RestSharp.Method.Get);
 
             if (data != null)
             {
@@ -389,7 +398,7 @@ namespace CoinAutoTradingApp.UpbitAPI
             bid,    // 매수
             ask     // 매도
         }
-        public enum MinuteUnit
+        public enum CandleUnit
         {
             _1 = 1,
             _3 = 3,
@@ -399,7 +408,6 @@ namespace CoinAutoTradingApp.UpbitAPI
             _30 = 30,
             _60 = 60,
             _240 = 240
-
         }
 
 

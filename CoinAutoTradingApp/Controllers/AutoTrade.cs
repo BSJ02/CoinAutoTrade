@@ -56,8 +56,8 @@ public partial class TradePage : ContentPage
     {
         foreach (var market in selectedMarkets)
         {
-            var candles = API.GetCandleMinutes(market, (MinuteUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
-            if (candles == null || candles.Count < 200)
+            var minCandles = API.GetCandleMinutes(market, (CandleUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
+            if (minCandles == null || minCandles.Count < 200)
             {
                 AddDebugMessage($"⚠️ {market} 캔들 데이터 부족");
                 continue;
@@ -66,23 +66,22 @@ public partial class TradePage : ContentPage
             double availableKRW = API.GetKRW().availableKRW;
             double tradeKRW = availableKRW > MaxTradeKRW ? MaxTradeKRW : availableKRW;
 
-            double prevPrice = candles[1].TradePrice;
-            double currPrice = candles[0].TradePrice;
+            double prevPrice = minCandles[1].TradePrice;
+            double currPrice = minCandles[0].TradePrice;
             double avgPrice = avgBuyPrice.TryGetValue(market, out double price) ? price : 0;
 
-            double[] ema9 = Calculate.EMAHistory(candles, 9).ToArray();
-            double[] ema20 = Calculate.EMAHistory(candles, 20).ToArray();
-            double[] ema50 = Calculate.EMAHistory(candles, 50).ToArray();
-            double[] ema100 = Calculate.EMAHistory(candles, 100).ToArray();
+            double[] ema9 = Calculate.EMAHistory(minCandles, 9).ToArray();
+            double[] ema20 = Calculate.EMAHistory(minCandles, 20).ToArray();
+            double[] ema50 = Calculate.EMAHistory(minCandles, 50).ToArray();
+            double[] ema100 = Calculate.EMAHistory(minCandles, 100).ToArray();
 
-            double cci = Calculate.CCI(candles);
+            double cci = Calculate.CCI(minCandles);
 
-            var bollingerBands = Calculate.BollingerBands(candles, 20);
-            var keltner = Calculate.KeltnerChannel(candles, 20);
+            var bollingerBands = Calculate.BollingerBands(minCandles, 20);
+            var keltner = Calculate.KeltnerChannel(minCandles, 20);
 
-            double rsi = Calculate.RSI(candles);
-            double atr = Calculate.ATR(candles);
-
+            double rsi = Calculate.RSI(minCandles);
+            double atr = Calculate.ATR(minCandles);
 
 
             // 미체결 주문 자동 취소
@@ -91,9 +90,15 @@ public partial class TradePage : ContentPage
                 var (orderPrice, orderTime) = pendingBuyOrders[market];
                 if ((DateTime.Now - orderTime).TotalSeconds > PendingOrderTimeLimit || Math.Abs(currPrice - orderPrice) / orderPrice > 0.02)
                 {
-                    API.CancelOrder(market);
-                    AddChatMessage($"🚫 미체결 매수 취소: {market} | 가격: {orderPrice:N2}");
-                    pendingBuyOrders.Remove(market);
+                    if (API.CancelOrder(market) != null)
+                    {
+                        AddChatMessage($"🚫 미체결 매수 취소: {market} | 가격: {orderPrice:N2}");
+                        pendingBuyOrders.Remove(market);
+                    }
+                    /*else
+                    {
+                        AddChatMessage($"🚨 미체결 주문 취소 실패");
+                    }*/
                 }
             }
 
@@ -102,20 +107,33 @@ public partial class TradePage : ContentPage
                 var (sellPrice, sellTime) = pendingSellOrders[market];
                 if ((DateTime.Now - sellTime).TotalSeconds > PendingOrderTimeLimit)
                 {
-                    API.CancelOrder(market);
-                    AddChatMessage($"🚫 미체결 매도 취소: {market} | 가격: {sellPrice:N2}");
-                    pendingSellOrders.Remove(market);
+                    if (API.CancelOrder(market) != null)
+                    {
+                        AddChatMessage($"🚫 미체결 매도 취소: {market} | 가격: {sellPrice:N2}");
+                        pendingSellOrders.Remove(market);
+                    }
+                    /*else
+                    {
+                        AddChatMessage($"🚨 미체결 주문 취소 실패");
+                    }*/
                 }
             }
 
-            bool isBuyCondition = (pendingBuyOrders.ContainsKey(market) ? pendingBuyOrders[market].price * 0.99 >= currPrice : true) &&
-                (avgBuyPrice.ContainsKey(market) ? avgBuyPrice[market] * 0.99 >= currPrice : true);
+            bool isBuyCondition = !pendingBuyOrders.ContainsKey(market);
+            if (avgBuyPrice.ContainsKey(market))
+            {
+                if (avgBuyPrice[market] * API.GetBalance(market) > 5000)
+                {
+                    isBuyCondition &= (avgBuyPrice.ContainsKey(market) ? avgBuyPrice[market] * 0.99 >= currPrice : true ||
+                                       avgBuyPrice.ContainsKey(market) ? avgBuyPrice[market] - atr >= currPrice : true);
+                }
+            }
 
             // 매매
             var tradeType = EvaluateTradeConditions(
                 prevPrice, currPrice, avgPrice,
                 ema9, ema20, ema50, ema100,
-                cci, atr, rsi, keltner, bollingerBands, candles,
+                cci, atr, rsi, keltner, bollingerBands, minCandles,
                 avgBuyPrice.ContainsKey(market),
                 availableKRW > 5000 && isBuyCondition
             );

@@ -11,52 +11,71 @@ namespace CoinAutoTradingApp.Utilities
     public class Calculate
     {
         // RSI
-        public static double RSI(List<CandleMinute> candles, int period = 14)
+        public static double RSI(List<CandleMinute> candles, int period = 14, int count = 14)
         {
-            if (candles.Count < period + 1) return 0; // 데이터가 부족하면 0 반환
+            double totalGain = 0;
+            double totalLoss = 0;
 
-            // 첫 period만큼의 gain, loss 계산
-            List<double> gains = new List<double>();
-            List<double> losses = new List<double>();
-
-            for (int i = 1; i < period + 1; i++)
+            for (int i = period + count; i > period - 2; i--)
             {
-                double change = candles[i].TradePrice - candles[i - 1].TradePrice;
-                gains.Add(Math.Max(0, change));
-                losses.Add(Math.Max(0, -change));
+                double prevClosePrice = candles[i + 1].TradePrice;
+                double currClosePrice = candles[i].TradePrice;
+
+                totalGain += Math.Max(0, currClosePrice - prevClosePrice);
+                totalLoss += Math.Max(0, prevClosePrice - currClosePrice);
             }
 
-            // 첫 번째 평균 Gain과 Loss 계산
-            double avgGain = gains.Average();
-            double avgLoss = losses.Average();
+            double avgGain = totalGain / count;
+            double avgLoss = totalLoss / count;
 
-            // RS와 RSI 계산
-            double rs = avgLoss == 0 ? 100 : avgGain / avgLoss;
+            for (int i = period - 2; i >= 0; i--)
+            {
+                double prevClosePrice = candles[i + 1].TradePrice;
+                double currClosePrice = candles[i].TradePrice;
+
+                double gain = Math.Max(0, currClosePrice - prevClosePrice);
+                double loss = Math.Max(0, prevClosePrice - currClosePrice);
+
+                avgGain = (avgGain * (period - 1) + gain) / period;
+                avgLoss = (avgLoss * (period - 1) + loss) / period;
+            }
+
+            double rs = avgGain / avgLoss;
             double rsi = 100 - (100 / (1 + rs));
 
             return rsi;
         }
-
+    
 
         // ATR
-        public static double ATR(List<CandleMinute> candles, int period = 14)
+        public static double ATR(List<CandleMinute> candles, int period = 14, int count = 14)
         {
-            if (candles.Count < period + 1)
+            if (candles.Count < period)
                 return 0;
 
-            List<double> trValues = new List<double>();
-
-            for (int i = 1; i <= period; i++)
+            double trSum = 0;
+            for (int i = period + count; i > period - 2; i--)
             {
                 double high = candles[i].HighPrice;
                 double low = candles[i].LowPrice;
-                double prevClose = candles[i - 1].TradePrice;
+                double prevClose = candles[i + 1].TradePrice;
 
                 double tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
-                trValues.Add(tr);
+                trSum += tr;
             }
 
-            double atr = trValues.Average();
+            double atr = trSum / period;
+
+            for (int i = period - 2; i >= 0; i--)
+            {
+                double high = candles[i].HighPrice;
+                double low = candles[i].LowPrice;
+                double prevClose = candles[i + 1].TradePrice;
+
+                double tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
+
+                atr = (atr * (period - 1) + tr) / period;
+            }
 
             return atr;
         }
@@ -72,7 +91,7 @@ namespace CoinAutoTradingApp.Utilities
             double sma = candles.Take(period).Average(c => c.TradePrice);
             emaValues.Add(sma);
 
-            for (int i = period; i >= 0; i--)
+            for (int i = period - 1; i >= 0; i--)
             {
                 double ema = ((candles[i].TradePrice - emaValues.Last()) * (double)multiplier) + emaValues.Last();
                 emaValues.Add(ema);
@@ -90,7 +109,7 @@ namespace CoinAutoTradingApp.Utilities
             double movingAverage = recentCandles.Average(c => c.TradePrice);
 
             double sumOfSquares = recentCandles.Sum(c => Math.Pow(c.TradePrice - movingAverage, 2));
-            double standardDeviation = Math.Sqrt(sumOfSquares / period);
+            double standardDeviation = Math.Sqrt(sumOfSquares / period - 1);
 
             double upperBand = movingAverage + multiplier * standardDeviation;
             double lowerBand = movingAverage - multiplier * standardDeviation;
@@ -102,17 +121,16 @@ namespace CoinAutoTradingApp.Utilities
         // CCI
         public static double CCI(List<CandleMinute> candles, int period = 20)
         {
-            if (candles.Count < period) return 0;
-
             var recentCandles = candles.Take(period).ToList();
 
-            var typicalPrices = recentCandles.Select(c => (c.HighPrice + c.LowPrice + c.TradePrice) / 3).ToList();
+            var latestCandle = recentCandles[0];
+            double typicalPrice = (latestCandle.HighPrice + latestCandle.LowPrice + latestCandle.TradePrice) / 3;
 
-            double sma = typicalPrices.Average();
+            double sma = recentCandles.Average(c => (c.HighPrice + c.LowPrice + c.TradePrice) / 3);
 
-            double meanDeviation = typicalPrices.Average(tp => Math.Abs(tp - sma));
+            double meanDeviation = recentCandles.Average(c => Math.Abs(((c.HighPrice + c.LowPrice + c.TradePrice) / 3) - sma));
 
-            return (typicalPrices.Last() - sma) / (0.015 * meanDeviation);
+            return (typicalPrice - sma) / (0.015 * meanDeviation);
         }
 
 
