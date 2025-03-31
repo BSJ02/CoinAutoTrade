@@ -25,8 +25,7 @@ public partial class TradePage : ContentPage
     private Dictionary<string, (double price, DateTime time)> pendingSellOrders;
 
     private const double FeeRate = 0.0005;  // 수수료
-    private const double PendingOrderTimeLimit = 30; // 미체결 주문 취소 기간
-    private const double InvestmentRatio = 0.2; // 한번 매수시 구매 비율 (총 KRW / InvestmentRatio)
+    private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
     private const double MaxTradeKRW = 1000000;   // 매매 시 최대 금액
 
     // ✅ 프로그램 시작 후, 기존 보유 코인의 avgBuyPrice 세팅
@@ -76,23 +75,14 @@ public partial class TradePage : ContentPage
             double[] ema50 = Calculate.EMAHistory(candles, 50).ToArray();
             double[] ema100 = Calculate.EMAHistory(candles, 100).ToArray();
 
-            var macd = Calculate.MACD(candles);
-            double[] cciHistory = Calculate.CCIHistory(candles).ToArray();
-
-            var keltner = Calculate.KeltnerChannel(candles, 20);
-
-            double[] obvHistory = Calculate.OBVHistory(candles).ToArray();
-            double[] volumeHistory = Calculate.VolumeHistory(candles).ToArray();
-            double rsi = Calculate.RSIHistory(candles).Last();
+            double cci = Calculate.CCI(candles);
 
             var bollingerBands = Calculate.BollingerBands(candles, 20);
-            double adx = Calculate.ADX(candles);
-            var di = Calculate.DI(candles);
-            var ichimoku = Calculate.IchimokuCloud(candles);
-            var stochastic = Calculate.StochasticOscillator(candles);
+            var keltner = Calculate.KeltnerChannel(candles, 20);
 
-            double[] atrHistory = Calculate.ATRHistory(candles).ToArray();
-            double vwap = Calculate.VWAP(candles);
+            double rsi = Calculate.RSI(candles);
+            double atr = Calculate.ATR(candles);
+
 
 
             // 미체결 주문 자동 취소
@@ -125,12 +115,7 @@ public partial class TradePage : ContentPage
             var tradeType = EvaluateTradeConditions(
                 prevPrice, currPrice, avgPrice,
                 ema9, ema20, ema50, ema100,
-                cciHistory, macd,
-                keltner,
-                obvHistory, volumeHistory,
-                rsi, bollingerBands, adx, di,
-                ichimoku, stochastic,
-                atrHistory, vwap, candles,
+                cci, atr, rsi, keltner, bollingerBands, candles,
                 avgBuyPrice.ContainsKey(market),
                 availableKRW > 5000 && isBuyCondition
             );
