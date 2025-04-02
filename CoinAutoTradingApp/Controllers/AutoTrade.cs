@@ -21,8 +21,7 @@ public partial class TradePage : ContentPage
     private Dictionary<string, double> avgBuyPrice; // 평단가 저장
     private CancellationTokenSource tradeLoopTokenSource;
 
-    private Dictionary<string, (double price, DateTime time)> pendingBuyOrders;  // 미체결 주문 추적
-    private Dictionary<string, (double price, DateTime time)> pendingSellOrders;
+    private Dictionary<string, (double price, DateTime time, string side)> pendingOrders;  // 미체결 주문 (bid: 매수, ask: 매도)
 
     private const double FeeRate = 0.0005;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
@@ -56,8 +55,8 @@ public partial class TradePage : ContentPage
     {
         foreach (var market in selectedMarkets)
         {
-            var minCandles = API.GetCandleMinutes(market, (CandleUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
-            if (minCandles == null || minCandles.Count < 200)
+            var minCandles = API.GetCandleMinutes(market, (CandleUnit)5, DateTime.UtcNow, 110)?.Cast<CandleMinute>().ToList();
+            if (minCandles == null || minCandles.Count < 110)
             {
                 AddDebugMessage($"⚠️ {market} 캔들 데이터 부족");
                 continue;
@@ -84,42 +83,47 @@ public partial class TradePage : ContentPage
             double atr = Calculate.ATR(minCandles);
 
 
-            // 미체결 주문 자동 취소
-            if (pendingBuyOrders.ContainsKey(market))
+            if (pendingOrders.ContainsKey(market))
             {
-                var (orderPrice, orderTime) = pendingBuyOrders[market];
-                if ((DateTime.Now - orderTime).TotalSeconds > PendingOrderTimeLimit || Math.Abs(currPrice - orderPrice) / orderPrice > 0.02)
+                var (orderPrice, orderTime, orderSide) = pendingOrders[market];
+                if ((DateTime.Now - orderTime).TotalSeconds > PendingOrderTimeLimit )
                 {
-                    if (API.CancelOrder(market) != null)
+                    var openOrders = API.GetOpenOrders(market);
+                    if (openOrders != null && openOrders.Count > 0)
                     {
-                        AddChatMessage($"🚫 미체결 매수 취소: {market} | 가격: {orderPrice:N2}");
-                        pendingBuyOrders.Remove(market);
+                        foreach (var order in openOrders)
+                        {
+                            if (order.Market != market)
+                                continue;
+
+                            if (order.Side == "bid") // 매수 주문인지 확인
+                            {
+                                if (API.CancelOrder(order.Uuid) != null)
+                                {
+                                    AddChatMessage($"🚫 미체결 매수 취소: {market} | 가격: {order.Price:N2}");
+                                    pendingOrders.Remove(market);
+                                    break;
+                                }
+                            }
+                            else if (order.Side == "ask")
+                            {
+                                if (API.CancelOrder(order.Uuid) != null)
+                                {
+                                    AddChatMessage($"🚫 미체결 매도 취소: {market} | 가격: {order.Price:N2}");
+                                    pendingOrders.Remove(market);
+                                    break;
+                                }
+                            }
+                        }
                     }
-                    /*else
+                    else
                     {
                         AddChatMessage($"🚨 미체결 주문 취소 실패");
-                    }*/
+                    }
                 }
             }
 
-            if (pendingSellOrders.ContainsKey(market))
-            {
-                var (sellPrice, sellTime) = pendingSellOrders[market];
-                if ((DateTime.Now - sellTime).TotalSeconds > PendingOrderTimeLimit)
-                {
-                    if (API.CancelOrder(market) != null)
-                    {
-                        AddChatMessage($"🚫 미체결 매도 취소: {market} | 가격: {sellPrice:N2}");
-                        pendingSellOrders.Remove(market);
-                    }
-                    /*else
-                    {
-                        AddChatMessage($"🚨 미체결 주문 취소 실패");
-                    }*/
-                }
-            }
-
-            bool isBuyCondition = !pendingBuyOrders.ContainsKey(market);
+            bool isBuyCondition = !pendingOrders.ContainsKey(market);
             if (avgBuyPrice.ContainsKey(market))
             {
                 if (avgBuyPrice[market] * API.GetBalance(market) > 5000)
@@ -159,10 +163,9 @@ public partial class TradePage : ContentPage
                         {
                             avgBuyPrice[market] = buyPrice;
                         }
-                        pendingBuyOrders[market] = (buyPrice, DateTime.Now);
+                        pendingOrders[market] = (buyPrice, DateTime.Now, "bid");
 
-
-                        AddChatMessage($"🟡 매수: {market} | {buyPrice:C2} | {buyQuantity} = {buyPrice * buyQuantity:C2}");
+                        AddChatMessage($"매수: {market} | {buyPrice:C2} | {buyQuantity} = {buyPrice * buyQuantity:C2}");
                     }
                     else
                     {
@@ -183,9 +186,9 @@ public partial class TradePage : ContentPage
                     if (sellOrder != null)
                     {
                         avgBuyPrice.Remove(market);
-                        pendingSellOrders[market] = (currPrice, DateTime.Now);
+                        pendingOrders[market] = (currPrice, DateTime.Now, "ask");
 
-                        AddChatMessage($"🔴 매도: {market} | {currPrice:C2} | {sellVolume} = {currPrice * sellVolume:C2}");
+                        AddChatMessage($"매도: {market} | {currPrice:C2} | {sellVolume} = {currPrice * sellVolume:C2}");
                     }
                     else
                     {

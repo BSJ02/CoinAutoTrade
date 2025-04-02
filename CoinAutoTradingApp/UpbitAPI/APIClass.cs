@@ -131,7 +131,7 @@ namespace CoinAutoTradingApp.UpbitAPI
                 { "uuid", uuid }
             };
 
-            var data = param.Delete("/v1/order", parameters);
+            var data = param.SendRequest("/v1/order", parameters, RestSharp.Method.Delete);
 
             if (data != null)
             {
@@ -142,6 +142,24 @@ namespace CoinAutoTradingApp.UpbitAPI
                 return null;
             }
         }
+
+        public List<Order> GetOpenOrders(string market)
+        {
+            Dictionary<string, string> parameters = new Dictionary<string, string>
+            {
+                { "market", market },
+                { "state", "wait" } // 미체결 주문 (대기 중인 주문)만 조회
+            };
+
+            var data = param.Get("/v1/orders", parameters, RestSharp.Method.Get);
+
+            if (data != null)
+            {
+                return JsonConvert.DeserializeObject<List<Order>>(data);
+            }
+            return null;
+        }
+
         public MakeOrder MakeOrderLimit(string market, OrderSide orderSide, double volume, double price)
         {
             // 주문 - 주문하기 - 지정가 매수&매도

@@ -64,83 +64,38 @@ namespace CoinAutoTradingApp.UpbitAPI
 
         }
 
-        public string Get(string path, Dictionary<string, string> parameters, Method method)
-        {
-
-            StringBuilder queryStringSb = GetQueryString(parameters);
-
-            var tokenSb = JWT_param(queryStringSb.ToString()); // 입력받은 변수를 JWT토큰으로 변환
-            var token = tokenSb.ToString();
-
-            queryStringSb.Insert(0, "?");      // 링크에 ?를 붙임으로 파라미터를 사용한다는 의미
-            queryStringSb.Insert(0, path);
-
-            // 여기까지오면 queryString는
-            // '/path?key1=value1&key2=value2 ....' 이러한 형태가 된다. 이것을 RestRequest에 넣어주면 된다.
-
-            var client = new RestClient(baseUrl);       // RestSharp 클라이언트 생성
-            var request = new RestRequest(queryStringSb.ToString(), method);
-            //request.AddHeader("Content-Type", "application/json");
-            request.AddHeader("Authorization", token);
-
-            queryStringSb.Clear(); queryStringSb = null;
-            tokenSb.Clear(); tokenSb = null;
-            parameters.Clear(); parameters = null;
-
-            var response = client.Execute(request);
-
-            try
-            {
-                if (response.IsSuccessful)
-                {
-                    return response.Content;
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            catch
-            {
-                return null;
-            }
-
-        }
-
-        public string Delete(string path, Dictionary<string, string> parameters)
+        public string SendRequest(string path, Dictionary<string, string> parameters, Method method)
         {
             StringBuilder queryStringSb = GetQueryString(parameters);
-            var tokenSb = JWT_param(queryStringSb.ToString());
-            var token = tokenSb.ToString();
-
-            // 최종 URL 생성
-            string fullPath = path + "?" + queryStringSb.ToString();
+            var token = JWT_param(queryStringSb.ToString()).ToString();
 
             var client = new RestClient(baseUrl);
-            var request = new RestRequest(fullPath, Method.Delete);
+            var request = new RestRequest($"{path}?{queryStringSb.ToString()}", method); // Query String 방식 적용
 
             request.AddHeader("Content-Type", "application/json");
             request.AddHeader("Authorization", token);
 
             var response = client.Execute(request);
 
-            try
-            {
-                if (response.IsSuccessful)
-                {
-                    return response.Content;
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            catch
-            {
-                return null;
-            }
+            return response.IsSuccessful ? response.Content : null;
         }
 
+        public string Get(string path, Dictionary<string, string> parameters, Method method)
+        {
+            StringBuilder queryStringSb = GetQueryString(parameters);
+
+            var token = JWT_param(queryStringSb.ToString()).ToString();
+
+            string fullPath = path + "?" + queryStringSb.ToString();
+
+            var client = new RestClient(baseUrl);
+            var request = new RestRequest(fullPath, method);
+            request.AddHeader("Authorization", token);
+
+            var response = client.Execute(request);
+
+            return response.IsSuccessful ? response.Content : null;
+        }
 
         public StringBuilder GetQueryString(Dictionary<string, string> parameters)
         {
