@@ -32,23 +32,23 @@ public partial class TradePage : ContentPage
             var prevKeltner = Calculate.KeltnerChannel(minCandles.Skip(i).ToList());
             var prevBollingerBands = Calculate.BollingerBands(minCandles.Skip(i).ToList());
 
-            isBollingerBandsCoindition = minCandles[i].TradePrice >= prevBollingerBands.lowerBand &&
+            isBollingerBandsCoindition = minCandles[i].TradePrice >= Math.Min(prevBollingerBands.lowerBand, prevKeltner.lower) &&
                                          minCandles[i].HighPrice < Math.Min(prevBollingerBands.movingAverage, prevKeltner.middle);
 
             if (!isBollingerBandsCoindition)
                 return false;
         }
 
-        double dynamicATR = atr * 1.6 + bollingerBands.lowerBand <= Math.Min(bollingerBands.movingAverage, keltner.middle) ?
-                            atr * 0.8 : atr;
+        double dynamicATR = atr * 1.5 + Math.Min(bollingerBands.lowerBand, keltner.lower) <= Math.Min(bollingerBands.movingAverage, keltner.middle) ?
+                            atr : atr * 0.75;
 
         isBollingerBandsCoindition &= minCandles[0].HighPrice <= Math.Min(bollingerBands.movingAverage, keltner.middle) &&
-                                      minCandles[0].TradePrice <= bollingerBands.lowerBand + dynamicATR &&
+                                      minCandles[0].TradePrice <= Math.Min(bollingerBands.movingAverage, Math.Min(keltner.middle, bollingerBands.lowerBand + dynamicATR)) &&
                                       minCandles[0].LowPrice >= bollingerBands.lowerBand;
 
-        bool isDMICondition = dmi.pdi.Skip(7).Average() <= dmi.mdi.Skip(7).Average() &&
-                              Math.Abs(dmi.pdi.Skip(7).Average() - dmi.mdi.Skip(7).Average()) >= 
-                              Math.Abs(dmi.pdi.Last() - dmi.mdi.Last());
+        bool isDMICondition = dmi.pdi.Last() < dmi.mdi.Last() &&
+                              dmi.pdi.Skip(7).Max() < dmi.pdi.Last() &&
+                              dmi.mdi.Skip(7).Min() > dmi.mdi.Last(); ;
 
 
         return isEmaCondition && isCciCondition && isRsiCondition && isBollingerBandsCoindition && isDMICondition;
@@ -80,8 +80,8 @@ public partial class TradePage : ContentPage
             }
         }
 
-        double dynamicATR = atr * 1.6 + bollingerBands.lowerBand <= Math.Min(bollingerBands.movingAverage, keltner.middle) ?
-                            atr * 0.8 : atr;
+        double dynamicATR = atr * 1.6 + bollingerBands.lowerBand < Math.Min(bollingerBands.movingAverage, keltner.middle) ?
+                            atr : atr * 0.8;
 
         return (cci <= 110 && isUpperBandsCoindition) ||
                (cci <= 10 && isMiddleBandsCoindition) ||
@@ -92,9 +92,9 @@ public partial class TradePage : ContentPage
                               (double[] pdi, double[] mdi) dmi,
                                List<CandleMinute> minCandles, double atrMultiplier = 1.5, double stopLossPercentage = 0.025)
     {
-        bool isDMICondition = dmi.pdi.Skip(7).Average() < dmi.mdi.Skip(7).Average() &&
-                              Math.Abs(dmi.pdi.Skip(7).Average() - dmi.mdi.Skip(7).Average()) <=
-                              Math.Abs(dmi.pdi.Last() - dmi.mdi.Last());
+        bool isDMICondition = dmi.pdi.Last() < dmi.mdi.Last()&
+                              dmi.pdi.Skip(7).Min() > dmi.pdi.Last() &&
+                              dmi.mdi.Skip(7).Max() < dmi.mdi.Last();
 
         return currPrice <= avgPrice - (atr * atrMultiplier) ||
                currPrice <= avgPrice * (1 - stopLossPercentage) ||
