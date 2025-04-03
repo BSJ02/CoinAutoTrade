@@ -22,7 +22,8 @@ public partial class TradePage : ContentPage
         DebugMessages = new ObservableCollection<ChatMessage>();
 
         avgBuyPrice = new Dictionary<string, double>();
-        pendingOrders = new Dictionary<string, (double, DateTime, string)>();
+        pendingBuyOrders = new Dictionary<string, (double, DateTime, string)>();
+        pendingSellOrders = new Dictionary<string, (double, DateTime, string)>();
 
         debugMessageResetTime = DateTime.Now;
         resetTimeLimit = 120;

@@ -21,7 +21,9 @@ public partial class TradePage : ContentPage
     private Dictionary<string, double> avgBuyPrice; // 평단가 저장
     private CancellationTokenSource tradeLoopTokenSource;
 
-    private Dictionary<string, (double price, DateTime time, string side)> pendingOrders;  // 미체결 주문 (bid: 매수, ask: 매도)
+    // 미체결 주문 취소 (bid: 매수, ask: 매도)
+    private Dictionary<string, (double price, DateTime time, string side)> pendingBuyOrders;
+    private Dictionary<string, (double price, DateTime time, string side)> pendingSellOrders;
 
     private const double FeeRate = 0.0005;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
@@ -76,54 +78,19 @@ public partial class TradePage : ContentPage
 
             double cci = Calculate.CCI(minCandles);
 
+            var dmi = Calculate.DMI(minCandles);
             var bollingerBands = Calculate.BollingerBands(minCandles, 20);
             var keltner = Calculate.KeltnerChannel(minCandles, 20);
 
             double rsi = Calculate.RSI(minCandles);
             double atr = Calculate.ATR(minCandles);
 
+            // 미체결 주문 취소
+            CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());
+            CancelPendingOrder(pendingSellOrders, market, OrderSide.ask.ToString());
 
-            if (pendingOrders.ContainsKey(market))
-            {
-                var (orderPrice, orderTime, orderSide) = pendingOrders[market];
-                if ((DateTime.Now - orderTime).TotalSeconds > PendingOrderTimeLimit )
-                {
-                    var openOrders = API.GetOpenOrders(market);
-                    if (openOrders != null && openOrders.Count > 0)
-                    {
-                        foreach (var order in openOrders)
-                        {
-                            if (order.Market != market)
-                                continue;
 
-                            if (order.Side == "bid") // 매수 주문인지 확인
-                            {
-                                if (API.CancelOrder(order.Uuid) != null)
-                                {
-                                    AddChatMessage($"🚫 미체결 매수 취소: {market} | 가격: {order.Price:N2}");
-                                    pendingOrders.Remove(market);
-                                    break;
-                                }
-                            }
-                            else if (order.Side == "ask")
-                            {
-                                if (API.CancelOrder(order.Uuid) != null)
-                                {
-                                    AddChatMessage($"🚫 미체결 매도 취소: {market} | 가격: {order.Price:N2}");
-                                    pendingOrders.Remove(market);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        AddChatMessage($"🚨 미체결 주문 취소 실패");
-                    }
-                }
-            }
-
-            bool isBuyCondition = !pendingOrders.ContainsKey(market);
+            bool isBuyCondition = !pendingBuyOrders.ContainsKey(market);
             if (avgBuyPrice.ContainsKey(market))
             {
                 if (avgBuyPrice[market] * API.GetBalance(market) > 5000)
@@ -137,7 +104,7 @@ public partial class TradePage : ContentPage
             var tradeType = EvaluateTradeConditions(
                 prevPrice, currPrice, avgPrice,
                 ema9, ema20, ema50, ema100,
-                cci, atr, rsi, keltner, bollingerBands, minCandles,
+                cci, atr, rsi, dmi, keltner, bollingerBands, minCandles,
                 avgBuyPrice.ContainsKey(market),
                 availableKRW > 5000 && isBuyCondition
             );
@@ -163,7 +130,7 @@ public partial class TradePage : ContentPage
                         {
                             avgBuyPrice[market] = buyPrice;
                         }
-                        pendingOrders[market] = (buyPrice, DateTime.Now, "bid");
+                        pendingBuyOrders[market] = (buyPrice, DateTime.Now, "bid");
 
                         AddChatMessage($"매수: {market} | {buyPrice:C2} | {buyQuantity} = {buyPrice * buyQuantity:C2}");
                     }
@@ -186,7 +153,7 @@ public partial class TradePage : ContentPage
                     if (sellOrder != null)
                     {
                         avgBuyPrice.Remove(market);
-                        pendingOrders[market] = (currPrice, DateTime.Now, "ask");
+                        pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
 
                         AddChatMessage($"매도: {market} | {currPrice:C2} | {sellVolume} = {currPrice * sellVolume:C2}");
                     }
@@ -197,6 +164,37 @@ public partial class TradePage : ContentPage
                 }
             }
             /* ---------------------------------------------------------------------*/
+        }
+
+        
+    }
+
+    private void CancelPendingOrder(Dictionary<string, (double price, DateTime time, string side)> pendingOrders, string market, string orderSide)
+    {
+        if (!pendingOrders.ContainsKey(market)) return;
+
+        if ((DateTime.Now - pendingOrders[market].time).TotalSeconds > PendingOrderTimeLimit)
+        {
+            var openOrders = API.GetOpenOrders(market);
+            if (openOrders == null || openOrders.Count == 0)
+            {
+                AddChatMessage($"🚨 미체결 주문 취소 실패");
+                pendingOrders.Remove(market);
+                return;
+            }
+
+            foreach (var order in openOrders)
+            {
+                if (order.Market != market || order.Side != orderSide)
+                    continue;
+
+                if (API.CancelOrder(order.Uuid) != null)
+                {
+                    AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");
+                    pendingOrders.Remove(market);
+                    break;
+                }
+            }
         }
 
     }
