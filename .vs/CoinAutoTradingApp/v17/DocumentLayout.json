@@ -34,8 +34,7 @@
               "RelativeToolTip": "CoinAutoTradingApp\\Calculate\\Calculate.cs",
               "ViewState": "AgIAAGEAAAAAAAAAAAAlwGMAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-04-02T21:11:36.223Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-04-02T21:11:36.223Z"
             },
             {
               "$type": "Document",
@@ -45,7 +44,7 @@
               "RelativeDocumentMoniker": "CoinAutoTradingApp\\Controllers\\TradingStrategies.cs",
               "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Controllers\\TradingStrategies.cs",
               "RelativeToolTip": "CoinAutoTradingApp\\Controllers\\TradingStrategies.cs",
-              "ViewState": "AgIAAFQAAAAAAAAAAAAtwGcAAABOAAAAAAAAAA==",
+              "ViewState": "AgIAABgAAAAAAAAAAAAlwBYAAAAyAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-03-23T01:20:15.333Z",
               "EditorCaption": ""
@@ -60,8 +59,7 @@
               "RelativeToolTip": "CoinAutoTradingApp\\Controllers\\AutoTrade.cs",
               "ViewState": "AgIAAFsAAAAAAAAAAAAlwGcAAAAMAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-03-23T01:20:10.587Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-03-23T01:20:10.587Z"
             }
           ]
         },

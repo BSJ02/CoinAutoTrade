@@ -20,9 +20,13 @@ public partial class TradePage : ContentPage
     {
         bool isEmaCondition = minCandles.Skip(1).Take(3).Min(c => c.LowPrice) <= minCandles[0].LowPrice;
 
-        bool isCciCondition = cci > -88 && cci < 0;
+        bool isCciCondition = cci >= -88 && cci <= 0;
 
         bool isRsiCondition = rsi > 33 && rsi < 50;
+
+        bool isDMICondition = dmi.pdi.Last() < dmi.mdi.Last() &&
+                      dmi.pdi.Skip(7).Take(dmi.pdi.Count() - 8).Max() < dmi.pdi.Last() &&
+                      dmi.mdi.Skip(7).Take(dmi.mdi.Count() - 8).Min() > dmi.mdi.Last();
 
         int period = 3;
         bool isBollingerBandsCoindition = false;
@@ -45,11 +49,6 @@ public partial class TradePage : ContentPage
         isBollingerBandsCoindition &= minCandles[0].HighPrice <= Math.Min(bollingerBands.movingAverage, keltner.middle) &&
                                       minCandles[0].TradePrice <= Math.Min(bollingerBands.movingAverage, Math.Min(keltner.middle, bollingerBands.lowerBand + dynamicATR)) &&
                                       minCandles[0].LowPrice >= bollingerBands.lowerBand;
-
-        bool isDMICondition = dmi.pdi.Last() < dmi.mdi.Last() &&
-                              dmi.pdi.Skip(7).Max() < dmi.pdi.Last() &&
-                              dmi.mdi.Skip(7).Min() > dmi.mdi.Last(); ;
-
 
         return isEmaCondition && isCciCondition && isRsiCondition && isBollingerBandsCoindition && isDMICondition;
     }
@@ -93,8 +92,8 @@ public partial class TradePage : ContentPage
                                List<CandleMinute> minCandles, double atrMultiplier = 1.5, double stopLossPercentage = 0.025)
     {
         bool isDMICondition = dmi.pdi.Last() < dmi.mdi.Last()&
-                              dmi.pdi.Skip(7).Min() > dmi.pdi.Last() &&
-                              dmi.mdi.Skip(7).Max() < dmi.mdi.Last();
+                              dmi.pdi.Skip(7).Take(dmi.pdi.Count() - 8).Max() < dmi.pdi.Last() &&
+                              dmi.mdi.Skip(7).Take(dmi.mdi.Count() - 8).Min() > dmi.mdi.Last();
 
         return currPrice <= avgPrice - (atr * atrMultiplier) ||
                currPrice <= avgPrice * (1 - stopLossPercentage) ||
