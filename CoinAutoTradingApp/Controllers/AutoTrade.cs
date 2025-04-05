@@ -105,7 +105,6 @@ public partial class TradePage : ContentPage
                 prevPrice, currPrice, avgPrice,
                 ema9, ema20, ema50, ema100,
                 cci, atr, rsi, dmi, keltner, bollingerBands, minCandles,
-                avgBuyPrice.ContainsKey(market),
                 availableKRW > 5000 && isBuyCondition
             );
 
@@ -132,7 +131,7 @@ public partial class TradePage : ContentPage
                         }
                         pendingBuyOrders[market] = (buyPrice, DateTime.Now, "bid");
 
-                        AddChatMessage($"매수: {market} | {buyPrice:C2} | {buyQuantity} = {buyPrice * buyQuantity:C2}");
+                        AddChatMessage($"매수: {market} | {buyPrice:C2} | {buyQuantity}");
                     }
                     else
                     {
@@ -155,7 +154,7 @@ public partial class TradePage : ContentPage
                         avgBuyPrice.Remove(market);
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
 
-                        AddChatMessage($"매도: {market} | {currPrice:C2} | {sellVolume} = {currPrice * sellVolume:C2}");
+                        AddChatMessage($"매도: {market} | {(currPrice - avgPrice) * sellVolume:C2}");
                     }
                     else
                     {
@@ -178,7 +177,6 @@ public partial class TradePage : ContentPage
             var openOrders = API.GetOpenOrders(market);
             if (openOrders == null || openOrders.Count == 0)
             {
-                AddChatMessage($"🚨 미체결 주문 취소 실패");
                 pendingOrders.Remove(market);
                 return;
             }

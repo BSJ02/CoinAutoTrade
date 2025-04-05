@@ -82,20 +82,43 @@ namespace CoinAutoTradingApp.Utilities
 
 
         // DMI
-        public static (double[] pdi, double[] mdi) DMI(List<CandleMinute> candles, int period = 14)
+        public static (double[] pdi, double[] mdi, double[] adx) DMI(List<CandleMinute> candles, int period = 14, int count = 14)
         {
-            double pDmSum = Math.Max(candles[period - 1].HighPrice - candles[period].HighPrice, 0);    // 당일 고가 - 전일 고가
-            double mDmSum = Math.Max(candles[period].LowPrice - candles[period - 1].LowPrice, 0);      // 전일 저가 - 당일 저가
-
-            double trSum = Math.Max(candles[period - 1].HighPrice - candles[period - 1].LowPrice,
-                                 Math.Max(Math.Abs(candles[period - 1].HighPrice - candles[period].TradePrice),
-                                          Math.Abs(candles[period - 1].LowPrice - candles[period].TradePrice)));
-
             List<double> pdi = new List<double>();
             List<double> mdi = new List<double>();
+            List<double> adx = new List<double>();
 
-            pdi.Add(pDmSum / trSum);
-            mdi.Add(mDmSum / trSum);
+            double pDmSum = 0;
+            double mDmSum = 0;
+            double trSum = 0;
+
+            for (int i = period + count; i > period - 2; i--)
+            {
+                double currHigh = candles[i].HighPrice;
+                double currLow = candles[i].LowPrice;
+
+                double prevHigh = candles[i + 1].HighPrice;
+                double prevLow = candles[i + 1].LowPrice;
+                double prevClose = candles[i + 1].TradePrice;
+
+                double pDm = Math.Max(currHigh - prevHigh, 0);
+                double mDm = Math.Max(prevLow - currLow, 0);
+
+                double tr = Math.Max(Math.Abs(currHigh - currLow),
+                              Math.Max(Math.Abs(currHigh - prevClose), Math.Abs(currLow - prevClose)));
+
+                pDmSum += pDm;
+                mDmSum += mDm;
+                trSum += tr;
+            }
+
+            double initPDI = 100 * (pDmSum / trSum);
+            double initMDI = 100 * (mDmSum / trSum);
+            pdi.Add(initPDI);
+            mdi.Add(initMDI);
+
+            double initADX = 100 * Math.Abs(initPDI - initMDI) / (initPDI + initMDI);
+            adx.Add(initADX);
 
             for (int i = period - 2; i >= 0; i--)
             {
@@ -103,19 +126,26 @@ namespace CoinAutoTradingApp.Utilities
                 double mDm = Math.Max(candles[i + 1].LowPrice - candles[i].LowPrice, 0);
 
                 double tr = Math.Max(candles[i].HighPrice - candles[i].LowPrice,
-                                 Math.Max(Math.Abs(candles[i].HighPrice - candles[i + 1].TradePrice),
-                                          Math.Abs(candles[i].LowPrice - candles[i + 1].TradePrice)));
+                             Math.Max(Math.Abs(candles[i].HighPrice - candles[i + 1].TradePrice),
+                                      Math.Abs(candles[i].LowPrice - candles[i + 1].TradePrice)));
 
                 pDmSum = pDmSum - (pDmSum / period) + pDm;
                 mDmSum = mDmSum - (mDmSum / period) + mDm;
                 trSum = trSum - (trSum / period) + tr;
 
-                pdi.Add(pDmSum / trSum);
-                mdi.Add(mDmSum / trSum);
+                double currPDI = 100 * (pDmSum / trSum);
+                double currMDI = 100 * (mDmSum / trSum);
+                pdi.Add(currPDI);
+                mdi.Add(currMDI);
+
+                double currDX = 100 * Math.Abs(currPDI - currMDI) / (currPDI + currMDI);
+                double currADX = ((adx.Last() * (period - 1)) + currDX) / period;
+                adx.Add(currADX);
             }
 
-            return (pdi.ToArray(), mdi.ToArray());
+            return (pdi.ToArray(), mdi.ToArray(), adx.ToArray());
         }
+
 
 
         // EMA
