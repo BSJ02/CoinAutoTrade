@@ -16,10 +16,10 @@ namespace CoinAutoTradingApp.UpbitAPI.Models
         public string OrdType { get; set; }        // 주문 방식 (limit, price, market)
 
         [JsonProperty("price")]
-        public string Price { get; set; }          // 주문 당시 화폐 가격
+        public double Price { get; set; }          // 주문 당시 화폐 가격
 
         [JsonProperty("avg_price")]
-        public string AvgPrice { get; set; }       // 체결 가격의 평균가
+        public double AvgPrice { get; set; }       // 체결 가격의 평균가
 
         [JsonProperty("state")]
         public string State { get; set; }          // 주문 상태 (wait, done, cancel)
@@ -31,7 +31,7 @@ namespace CoinAutoTradingApp.UpbitAPI.Models
         public DateTime CreatedAt { get; set; }     // 주문 생성 시간
 
         [JsonProperty("volume")]
-        public string Volume { get; set; }         // 주문량
+        public double Volume { get; set; }         // 주문량
 
         [JsonProperty("remaining_volume")]
         public double RemainingVolume { get; set; }  // 남은 주문량

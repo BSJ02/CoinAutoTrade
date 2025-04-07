@@ -59,6 +59,28 @@ namespace CoinAutoTradingApp.UpbitAPI
             return (availableKRW, totalKRW);
         }
 
+        public bool IsHaveMarket(string market)
+        {
+            var accounts = GetAccount(); // 기존 계좌 조회 메서드 호출
+            if (accounts == null || accounts.Count == 0)
+            {
+                Debug.WriteLine("❌ 계좌 정보를 가져올 수 없음.");
+                return false;
+            }
+
+            string currMarket = market.Split('-')[1];
+
+            // ✅ KRW 계좌 정보만 필터링
+            var krwAccount = accounts.FirstOrDefault(a => a.Currency == currMarket && a.Balance * a.AvgBuyPrice > 5000);
+            if (krwAccount == null)
+            {
+                Debug.WriteLine($"❌ {market} 계좌 보유하지 않음.");
+                return false;
+            }
+
+            return true;
+        }
+
         public double GetBalance(string market)
         {
             var accounts = GetAccount(); // ✅ 계좌 정보 가져오기

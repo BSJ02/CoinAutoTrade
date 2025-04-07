@@ -29,6 +29,8 @@ public partial class TradePage : ContentPage
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
     private const double MaxTradeKRW = 1000000;   // 매매 시 최대 금액
 
+    private bool isHaveMarket = false;
+
     // ✅ 프로그램 시작 후, 기존 보유 코인의 avgBuyPrice 세팅
     public void InitializeAvgBuyPrices()
     {
@@ -64,6 +66,8 @@ public partial class TradePage : ContentPage
                 continue;
             }
 
+            isHaveMarket = API.IsHaveMarket(market);
+
             double availableKRW = API.GetKRW().availableKRW;
             double tradeKRW = availableKRW > MaxTradeKRW ? MaxTradeKRW : availableKRW;
 
@@ -90,15 +94,7 @@ public partial class TradePage : ContentPage
             CancelPendingOrder(pendingSellOrders, market, OrderSide.ask.ToString());
 
 
-            bool isBuyCondition = !pendingBuyOrders.ContainsKey(market);
-            if (avgBuyPrice.ContainsKey(market))
-            {
-                if (avgBuyPrice[market] * API.GetBalance(market) > 5000)
-                {
-                    isBuyCondition &= (avgBuyPrice.ContainsKey(market) ? avgBuyPrice[market] * 0.99 >= currPrice : true ||
-                                       avgBuyPrice.ContainsKey(market) ? avgBuyPrice[market] - atr >= currPrice : true);
-                }
-            }
+            bool isBuyCondition = !pendingBuyOrders.ContainsKey(market) && !avgBuyPrice.ContainsKey(market);
 
             // 매매
             var tradeType = EvaluateTradeConditions(
@@ -131,7 +127,8 @@ public partial class TradePage : ContentPage
                         }
                         pendingBuyOrders[market] = (buyPrice, DateTime.Now, "bid");
 
-                        AddChatMessage($"매수: {market} | {buyPrice:C2} | {buyQuantity}");
+                        AddChatMessage($"🟢 매수: {market.Split('-')[1]}");
+
                     }
                     else
                     {
@@ -154,7 +151,7 @@ public partial class TradePage : ContentPage
                         avgBuyPrice.Remove(market);
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
 
-                        AddChatMessage($"매도: {market} | {(currPrice - avgPrice) * sellVolume:C2}");
+                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgPrice) * sellVolume:C2}");
                     }
                     else
                     {
@@ -188,6 +185,11 @@ public partial class TradePage : ContentPage
 
                 if (API.CancelOrder(order.Uuid) != null)
                 {
+                    if (!isHaveMarket)
+                    {
+                        avgBuyPrice.Remove(market);
+                    }
+
                     AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");
                     pendingOrders.Remove(market);
                     break;

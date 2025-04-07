@@ -13,166 +13,165 @@ namespace CoinAutoTradingApp;
 public partial class TradePage : ContentPage
 {
     // 매수 조건
-    public bool CheckShortTermBuyCondition((double[] pdi, double[] mdi, double[] adx) dmi,
-                                           (double upper, double middle, double lower) keltner,
-                                           (double upperBand, double lowerBand, double movingAverage) bollingerBands,
-                                            double cci, double rsi, double atr, List<CandleMinute> minCandles)
+    public bool CheckBuyCondition((double pdi, double mdi, double adx) dmi,
+                                  (double upper, double middle, double lower) keltner,
+                                  (double upperBand, double lowerBand, double movingAverage) bollingerBands,
+                                   double cci, double rsi, double atr, List<CandleMinute> minCandles)
     {
+        // 🔶 보조 조건 1: 눌림목 (최근 저점보다 높음)
         bool isEmaCondition = minCandles.Skip(1).Take(3).Min(c => c.LowPrice) <= minCandles[0].LowPrice;
 
-        bool isCciCondition = cci > -85 && cci <= 20;
+        // 🔶 보조 조건 2, 3
+        int period = 5;
 
-        bool isRsiCondition = rsi > 33 && rsi < 50;
+        bool isBollingerBandsCondition = true;
+        bool isDMICondition = false;
 
-        int skipIndex = 8;
-        int takeIndex = dmi.pdi.Length - skipIndex - 1;
-        bool isDMICondition = dmi.mdi.Last() > dmi.pdi.Last() &&
-                              dmi.mdi.Last() <= dmi.pdi.Last() + (dmi.adx.Last() * 0.6) && 
-                              dmi.pdi.Skip(skipIndex).Take(takeIndex).Min() < dmi.pdi.Last() &&
-                              dmi.mdi.Skip(skipIndex).Take(takeIndex).Max() > dmi.mdi.Last();
+        double minValue = double.MaxValue;
+        double minLowPrice = double.MaxValue;
+        double minCCI = double.MaxValue;
+        double minADX = double.MaxValue;
 
-        int period = 3;
-        bool isBollingerBandsCoindition = false;
+        (double[] pdi, double[] mdi) dmiArray = (new double[period], new double[period]);
 
-        double dynamicATR = atr * 1.5 + minCandles[0].TradePrice > Math.Min(bollingerBands.movingAverage, keltner.middle) ?
-                            atr * 0.8 : atr;
-
-        for (int i = period; i >= 0; i--)
+        for (int i = period; i > 0; i--)
         {
-            if (i == 0)
+            if (i <= 3)
             {
-                isBollingerBandsCoindition &= minCandles[i].HighPrice <= Math.Min(bollingerBands.movingAverage, keltner.middle) &&
-                                              minCandles[i].TradePrice < Math.Min(Math.Min(bollingerBands.movingAverage, keltner.middle),
-                                                                                  Math.Min(bollingerBands.lowerBand, keltner.lower) + dynamicATR) &&
-                                              minCandles[i].LowPrice >= Math.Min(bollingerBands.lowerBand, keltner.lower);
-            }
-            else
-            {
+                // 🔶 보조 조건 2: 볼밴 하단 돌파 후 반등 시도
                 var prevKeltner = Calculate.KeltnerChannel(minCandles.Skip(i).ToList());
                 var prevBollingerBands = Calculate.BollingerBands(minCandles.Skip(i).ToList());
 
-                isBollingerBandsCoindition = minCandles[i].TradePrice >= Math.Min(prevBollingerBands.lowerBand, prevKeltner.lower) &&
-                                             minCandles[i].HighPrice < Math.Min(prevBollingerBands.movingAverage, prevKeltner.middle);
+                minCCI = Math.Min(minCCI, Calculate.CCI(minCandles.Skip(i).ToList()));
+                minValue = Math.Min(Math.Min(minValue, minCandles[i].LowPrice), Math.Min(prevBollingerBands.lowerBand, prevKeltner.lower));
+
+                if (isBollingerBandsCondition)
+                    isBollingerBandsCondition = minCandles[i].TradePrice >= Math.Min(prevBollingerBands.lowerBand, prevKeltner.lower) &&
+                                                minCandles[i].HighPrice < (prevBollingerBands.movingAverage + prevKeltner.middle) / 2;
             }
 
-            if (!isBollingerBandsCoindition)
-                break;
+            // 🔶 보조 조건 3: DMI 약세 → 반전 가능성
+            var prevDMI = Calculate.DMI(minCandles.Skip(i).ToList());
+
+            minADX = Math.Min(minADX, prevDMI.adx);
+            minLowPrice = Math.Min(minLowPrice, minCandles[i].LowPrice);
+
+            dmiArray.pdi[i - 1] = prevDMI.pdi;
+            dmiArray.mdi[i - 1] = prevDMI.mdi;
         }
+
+        isDMICondition = dmi.mdi >= dmi.pdi &&
+                         dmi.adx > minADX &&
+                         dmiArray.mdi.Max() > dmi.mdi;
+
+        // ✅ 필수 조건
+        bool isCciCondition = cci > -100 && cci < 50 &&
+                              minCCI <= cci;
+        bool isRsiCondition = rsi >= 30 && rsi < 46;
+        bool isTradPrice = minCandles[0].TradePrice <= Math.Min((bollingerBands.movingAverage + keltner.middle) / 2,
+                                                                minValue + atr < minCandles[0].TradePrice ?
+                                                                Math.Min(minLowPrice, minCandles[0].LowPrice) + atr * 0.29 :
+                                                                minValue + atr * 0.49) &&
+                           minCandles[0].LowPrice >= minValue;
 
         // 디버그 메세지 추가
         string debugMessage = "";
-        int count = 0;
+        int count = 0;      // 필수 조건 카운트
+        int softCount = 0;  // 보조 조건 카운트
 
-        if (isEmaCondition) { debugMessage += "| EMA "; count++; }
+        // 🔢 필수 조건 카운트
         if (isCciCondition) { debugMessage += "| CCI "; count++; }
         if (isRsiCondition) { debugMessage += "| RSI "; count++; }
-        if (isBollingerBandsCoindition) { debugMessage += "| BAND "; count++; }
-        if (isDMICondition) { debugMessage += "| DMI "; count++; }
-
-        if (!string.IsNullOrEmpty(debugMessage) && count >= 3)
+        if (isTradPrice)
         {
-            debugMessage = $"{count}/5 {debugMessage}";
-            AddDebugMessage(debugMessage);
-            AddDebugMessage($"{minCandles[0].Market}");
+            debugMessage += "| Price ";
+            count++;
         }
 
-        return isEmaCondition && isCciCondition && isRsiCondition && isBollingerBandsCoindition && isDMICondition;
+        if (!string.IsNullOrEmpty(debugMessage) && count >= 2)
+        {
+            if (count < 3)
+            {
+                debugMessage = $"필수 {count}/3 {debugMessage}";
+                AddDebugMessage(debugMessage);
+            }
+            else
+            {
+                debugMessage = "";
+
+                // 🔢 보조 조건 카운트
+                if (isEmaCondition) { debugMessage += "| EMA "; softCount++; }
+                if (isBollingerBandsCondition) { debugMessage += "| BAND "; softCount++; }
+                if (isDMICondition) { debugMessage += "| DMI "; softCount++; }
+
+                debugMessage = $"보조 {softCount}/3 {debugMessage}";
+                AddDebugMessage(debugMessage);
+            }
+            
+            AddDebugMessage(minCandles[0].Market);
+        }
+
+        return count >= 3 && softCount >= 2;
     }
 
     public bool ShouldTakeProfit(double currPrice, double avgPrice, double cci, double atr, double rsi,
-                                (double[] pdi, double[] mdi, double[] adx) dmi,
+                                (double pdi, double mdi, double adx) dmi,
                                 (double upper, double middle, double lower) keltner,
                                 (double upperBand, double lowerBand, double movingAverage) bollingerBands,
                                  List<CandleMinute> minCandles)
     {
-        if (!avgBuyPrice.ContainsKey(minCandles[0].Market))
+        if (!isHaveMarket)
             return false;
 
-        int period = 3;
-        bool isUpperBandsCoindition = false;
-        bool isMiddleBandsCoindition = false;
+        bool isUpperBandsCoindition = minCandles[0].HighPrice >= Math.Min(bollingerBands.upperBand, keltner.upper);
+        bool isMiddleBandsCoindition = minCandles[0].HighPrice >= (bollingerBands.movingAverage + keltner.middle) / 2;
+        bool isUpperMiddleAverageCondition = minCandles[0].HighPrice >= (Math.Min(bollingerBands.upperBand, keltner.upper) + ((bollingerBands.movingAverage + keltner.middle) / 2)) / 2;
 
-        for (int i = 1; i <= period; i++)
-        {
-            var prevKeltner = Calculate.KeltnerChannel(minCandles.Skip(i).ToList());
-            var prevBollingerBands = Calculate.BollingerBands(minCandles.Skip(i).ToList());
-
-            if (!isUpperBandsCoindition)
-            {
-                isUpperBandsCoindition = minCandles[i].HighPrice >= Math.Min(prevBollingerBands.upperBand, prevKeltner.upper);
-            }
-
-            if (!isMiddleBandsCoindition)
-            {
-                isMiddleBandsCoindition = minCandles[i].HighPrice >= Math.Max(prevBollingerBands.movingAverage, prevKeltner.middle);
-            }
-        }
-
-        double dynamicATR = atr * 1.5 + minCandles[0].TradePrice > Math.Min(bollingerBands.movingAverage, keltner.middle) ?
-                            atr * 0.8 : atr;
-
-        // 디버그 메시지 추가
-        string debugMessage = "";
-        int count = 0;
-
-        if (cci <= 110 && isUpperBandsCoindition) { debugMessage += "| UpperBand "; count++; }
-        if (cci <= 10 && isMiddleBandsCoindition) { debugMessage += "| MiddleBand "; count++; }
-        if (cci <= 0 && currPrice > avgPrice + dynamicATR) { debugMessage += "| AvgPrice + ATR "; count++; }
-        if (cci >= 100 && rsi > 50 && dmi.adx.Last() >= 35) { debugMessage += "| CCI,RSI,ADX "; count++; }
-
-        if (!string.IsNullOrEmpty(debugMessage))
-        {
-            debugMessage = $"{count}/4 {debugMessage}";
-            AddChatMessage(debugMessage);
-            AddChatMessage($"{minCandles[0].Market} 익절");
-        }
-
-        return (cci <= 110 && isUpperBandsCoindition) ||
-               (cci <= 10 && isMiddleBandsCoindition) ||
-               (cci <= 0 && currPrice > avgPrice + dynamicATR) ||
-               (cci >= 100 && rsi >= 50 && dmi.adx.Last() >= 35);
+        return avgPrice * FeeRate < minCandles[0].TradePrice &&
+             ((cci <= 150 && isUpperBandsCoindition) ||
+              (cci <= 50 && isUpperMiddleAverageCondition) ||
+              (cci <= 0 && isMiddleBandsCoindition) ||
+              (cci <= 0 && currPrice >= avgPrice + atr));
     }
 
     public bool ShouldStopLoss(double currPrice, double avgPrice, double atr, double cci, double rsi,
-                              (double[] pdi, double[] mdi, double[] adx) dmi,
-                               List<CandleMinute> minCandles, double atrMultiplier = 1.5, double stopLossPercentage = 0.025)
+                              (double pdi, double mdi, double adx) dmi,
+                               List<CandleMinute> minCandles, double atrMultiplier = 1.5)
     {
-        if (!avgBuyPrice.ContainsKey(minCandles[0].Market))
+        if (!isHaveMarket)
             return false;
 
-        int skipIndex = 8;
-        int takeIndex = dmi.pdi.Length - skipIndex - 1;
+        int period = 14;
+        bool isAtrLoss = false;
 
-        bool isAtrStopLoss = currPrice <= avgPrice - (atr * atrMultiplier);
-        bool isPercentageStopLoss = currPrice <= avgPrice * (1 - stopLossPercentage);
-
-        // 디버그 메시지 생성
-        string debugMessage = "";
-        int count = 0;
-
-        if (isAtrStopLoss) { debugMessage += "| ATR Stop "; count++; }
-        if (isPercentageStopLoss) { debugMessage += "| % Stop "; count++; }
-
-        if (!string.IsNullOrEmpty(debugMessage))
+        for (int i = period; i >= 0; i--)
         {
-            debugMessage = $"{count}/2 {debugMessage}";
-            AddChatMessage(debugMessage);
-            AddChatMessage($"{minCandles[0].Market} 손절");
+            double prevATR = Calculate.ATR(minCandles.Skip(i).ToList());
+
+            isAtrLoss = minCandles[i].TradePrice <= avgPrice - prevATR;
+
+            if (isAtrLoss)
+                break;
         }
 
-        return isAtrStopLoss || isPercentageStopLoss;
+        if (isAtrLoss)
+            isAtrLoss = minCandles[0].TradePrice >= avgPrice - atr * 0.3;
+
+        bool isAtrMultiplierStopLoss = currPrice <= avgPrice - (atr * atrMultiplier);
+
+        return isAtrLoss || isAtrMultiplierStopLoss;
     }
 
     public TradeType EvaluateTradeConditions(double prevPrice, double currPrice, double avgPrice, 
                                              double[] ema9, double[] ema20, double[] ema50, double[] ema100,
                                              double cci, double atr, double rsi,
-                                             (double[] pdi, double[] mdi, double[] adx) dmi,
+                                             (double pdi, double mdi, double adx) dmi,
                                             (double upper, double middle, double lower) keltner, 
                                             (double upperBand, double lowerBand, double movingAverage) bollingerBands,
                                              List<CandleMinute> minCandles, bool isKRWHeld)
     {
         // (매수)
-        bool isShortTermBuy = CheckShortTermBuyCondition(dmi, keltner, bollingerBands, cci, rsi, atr, minCandles) && isKRWHeld;
+        bool isShortTermBuy = CheckBuyCondition(dmi, keltner, bollingerBands, cci, rsi, atr, minCandles) && isKRWHeld;
         
         // 익절 (매도)
         bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, cci, atr, rsi, dmi, keltner, bollingerBands, minCandles);
@@ -186,13 +185,13 @@ public partial class TradePage : ContentPage
         }
         else if (isTakeProfit)
         {
-            return ExecuteSellOrder("Take Profit"); // ATR 기반 손절 매도
+            return ExecuteSellOrder("Take Profit"); // 익절 매도
         }
 
         // 매수 조건 처리
         else if (isShortTermBuy)
         {
-            return ExecuteBuyOrder("Short Term Buy"); // 단기 트레이딩 매수
+            return ExecuteBuyOrder("Check Buy Condition"); // 매수
         }
 
         return TradeType.None;
