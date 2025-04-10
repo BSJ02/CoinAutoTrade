@@ -204,7 +204,7 @@ namespace CoinAutoTradingApp.Utilities
 
 
         // CCI
-        public static double CCI(List<CandleMinute> candles, int period = 20)
+        public static double CCI(List<CandleMinute> candles, int period = 14)
         {
             var recentCandles = candles.Take(period).ToList();
 

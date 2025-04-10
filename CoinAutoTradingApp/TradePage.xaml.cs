@@ -7,6 +7,11 @@ namespace CoinAutoTradingApp;
 
 public partial class TradePage : ContentPage
 {
+    private double totalProfit;
+
+    private DateTime tradStartTime;
+    private DateTime tradEndTime;
+
     private DateTime debugMessageResetTime;
     private int resetTimeLimit;
 
@@ -43,6 +48,7 @@ public partial class TradePage : ContentPage
         tradeLoopTokenSource = new CancellationTokenSource();
         CancellationToken token = tradeLoopTokenSource.Token;
 
+        tradStartTime = DateTime.Now;
 
         Task.Run(async () =>
         {
@@ -75,10 +81,12 @@ public partial class TradePage : ContentPage
     {
         if (tradeLoopTokenSource != null)
         {
+            tradEndTime = DateTime.Now;
             tradeLoopTokenSource.Cancel();
             tradeLoopTokenSource.Dispose();
             tradeLoopTokenSource = null;
             AddChatMessage("🛑 자동 매매 중지됨.");
+            AddChatMessage($"시간: {(int)(tradEndTime - tradStartTime).TotalMinutes}분 : {totalProfit:C2}");
         }
     }
 }

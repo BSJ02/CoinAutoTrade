@@ -27,7 +27,7 @@ public partial class TradePage : ContentPage
 
     private const double FeeRate = 0.0005;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
-    private const double MaxTradeKRW = 1000000;   // 매매 시 최대 금액
+    private const double MaxTradeKRW = 500000;   // 매매 시 최대 금액
 
     private bool isHaveMarket = false;
 
@@ -80,7 +80,8 @@ public partial class TradePage : ContentPage
             double[] ema50 = Calculate.EMAHistory(minCandles, 50).ToArray();
             double[] ema100 = Calculate.EMAHistory(minCandles, 100).ToArray();
 
-            double cci = Calculate.CCI(minCandles);
+            double cci9 = Calculate.CCI(minCandles, 9);
+            double cci14 = Calculate.CCI(minCandles, 14);
 
             var dmi = Calculate.DMI(minCandles);
             var bollingerBands = Calculate.BollingerBands(minCandles, 20);
@@ -100,7 +101,7 @@ public partial class TradePage : ContentPage
             var tradeType = EvaluateTradeConditions(
                 prevPrice, currPrice, avgPrice,
                 ema9, ema20, ema50, ema100,
-                cci, atr, rsi, dmi, keltner, bollingerBands, minCandles,
+                cci9, cci14, atr, rsi, dmi, keltner, bollingerBands, minCandles,
                 availableKRW > 5000 && isBuyCondition
             );
 
@@ -115,16 +116,7 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, buyPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        if (avgBuyPrice.ContainsKey(market))
-                        {
-                            double currentHolding = API.GetBalance(market);
-                            double newTotalQuantity = currentHolding + buyQuantity;
-                            avgBuyPrice[market] = ((avgBuyPrice[market] * currentHolding) + (buyPrice * buyQuantity)) / newTotalQuantity;
-                        }
-                        else
-                        {
-                            avgBuyPrice[market] = buyPrice;
-                        }
+                        avgBuyPrice[market] = buyPrice;
                         pendingBuyOrders[market] = (buyPrice, DateTime.Now, "bid");
 
                         AddChatMessage($"🟢 매수: {market.Split('-')[1]}");
@@ -151,7 +143,9 @@ public partial class TradePage : ContentPage
                         avgBuyPrice.Remove(market);
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
 
-                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgPrice) * sellVolume:C2}");
+                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {((currPrice - avgPrice) * sellVolume) - (currPrice * sellVolume * FeeRate + avgPrice * sellVolume * FeeRate):C2}");
+
+                        totalProfit += ((currPrice - avgPrice) * sellVolume) - (currPrice * sellVolume * FeeRate + avgPrice * sellVolume * FeeRate);
                     }
                     else
                     {
