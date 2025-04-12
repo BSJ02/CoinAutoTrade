@@ -25,6 +25,8 @@ public partial class TradePage : ContentPage
     private Dictionary<string, (double price, DateTime time, string side)> pendingBuyOrders;
     private Dictionary<string, (double price, DateTime time, string side)> pendingSellOrders;
 
+    private Dictionary<string, DateTime> waitBuyCondition;
+
     private const double FeeRate = 0.0005;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
     private const double MaxTradeKRW = 500000;   // 매매 시 최대 금액
@@ -142,6 +144,9 @@ public partial class TradePage : ContentPage
                     {
                         avgBuyPrice.Remove(market);
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
+
+                        // 매도 후 바로 매수 막기
+                        waitBuyCondition[market] = DateTime.Now;
 
                         AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {((currPrice - avgPrice) * sellVolume) - (currPrice * sellVolume * FeeRate + avgPrice * sellVolume * FeeRate):C2}");
 

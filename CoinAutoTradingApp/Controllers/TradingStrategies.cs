@@ -18,20 +18,30 @@ public partial class TradePage : ContentPage
                                          (double upperBand, double lowerBand, double movingAverage) bollingerBands,
                                           double cci9, double cci14, double rsi, double atr, List<CandleMinute> minCandles)
     {
+        var slicedCandles = minCandles.Skip(1).ToList();
+
         // ✅ 필수 조건
         // 1: 최근 저점보다 높음
-        bool isLowPriceCondition = minCandles.Skip(1).Take(5).Min(c => (c.LowPrice)) <= minCandles[0].LowPrice;
+        bool isLowPriceCondition = slicedCandles.Take(5).Min(c => (c.LowPrice)) <= minCandles[0].LowPrice;
 
         // 2: CCI 상승
-        double prevCCI14 = Calculate.CCI(minCandles.Skip(1).ToList(), 14);
-        double prevCCI9 = Calculate.CCI(minCandles.Skip(1).ToList(), 9);
+        double prevCCI9 = Calculate.CCI(slicedCandles, 9);
 
-        bool isCciCondition = prevCCI14 + 5 < cci14 &&
-                              cci14 < cci9 && Math.Abs(Math.Abs(prevCCI9) - Math.Abs(prevCCI14)) > Math.Abs(cci9) - Math.Abs(cci14) && 
+        double[] prevCCI14 = new double[2];
+
+        for (int i = 0; i < 2; i++)
+        {
+            prevCCI14[i] = Calculate.CCI(slicedCandles, 14);
+        }
+
+        bool isCciCondition = prevCCI14[1] + 40 < cci14 && prevCCI14[0] + 5 < cci14 &&
+                              cci14 < cci9 && Math.Abs(Math.Abs(prevCCI9) - Math.Abs(prevCCI14[0])) > Math.Abs(cci9) - Math.Abs(cci14) && 
                               cci14 > -105 && cci14 < -60;
 
         // 3: RSI
-        bool isRsiCondition = rsi > 32 && rsi < 55;
+        double prevRSI = Calculate.RSI(slicedCandles);
+        bool isRsiCondition = prevRSI + 1 < rsi &&
+                              rsi > 32 && rsi < 55;
 
         // 4: 현재가가 저점일시 매수
         double minLowPrice = Math.Min(minCandles[0].LowPrice, minCandles[1].TradePrice);
@@ -162,7 +172,30 @@ public partial class TradePage : ContentPage
         // 손절 (매도)
         bool isStopLoss = ShouldStopLoss(currPrice, avgPrice, atr, cci14, rsi, dmi, minCandles);
         
-        // 매수 및 매도 로직
+
+        string market = minCandles[0].Market;
+
+        // 매수
+        if (waitBuyCondition.ContainsKey(market))
+        {
+            if ((waitBuyCondition[market] - DateTime.Now).TotalSeconds > 120)
+            {
+                waitBuyCondition.Remove(market);
+            }
+        }
+        else
+        {
+            if (isReasonableEntryDip)
+            {
+                return ExecuteBuyOrder("Reasonable Buy Condition"); // 매수
+            }
+            else if (isTechnicalPullbackEntry)
+            {
+                return ExecuteBuyOrder("Technical Buy Condition"); // 매수
+            }
+        }
+
+        // 매도
         if (isStopLoss)
         {
             return ExecuteSellOrder("Stop Loss"); // 손절 매도
@@ -172,16 +205,6 @@ public partial class TradePage : ContentPage
             return ExecuteSellOrder("Take Profit"); // 익절 매도
         }
 
-        string market = minCandles[0].Market;
-
-        if (isReasonableEntryDip)
-        {
-            return ExecuteBuyOrder("Reasonable Buy Condition"); // 매수
-        }
-        else if (isTechnicalPullbackEntry)
-        {
-            return ExecuteBuyOrder("Technical Buy Condition"); // 매수
-        }
 
         return TradeType.None;
     }
