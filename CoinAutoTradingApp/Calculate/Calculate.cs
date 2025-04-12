@@ -207,13 +207,16 @@ namespace CoinAutoTradingApp.Utilities
         public static double CCI(List<CandleMinute> candles, int period = 14)
         {
             var recentCandles = candles.Take(period).ToList();
-
             var latestCandle = recentCandles[0];
+
             double typicalPrice = (latestCandle.HighPrice + latestCandle.LowPrice + latestCandle.TradePrice) / 3;
 
             double sma = recentCandles.Average(c => (c.HighPrice + c.LowPrice + c.TradePrice) / 3);
 
             double meanDeviation = recentCandles.Average(c => Math.Abs(((c.HighPrice + c.LowPrice + c.TradePrice) / 3) - sma));
+
+            if (meanDeviation == 0)
+                return 0;
 
             return (typicalPrice - sma) / (0.015 * meanDeviation);
         }
