@@ -26,9 +26,10 @@ public partial class TradePage : ContentPage
     private Dictionary<string, (double price, DateTime time, string side)> pendingSellOrders;
 
     private Dictionary<string, DateTime> waitBuyCondition;
+    private Dictionary<string, double> entryCciByMarket;
 
     private const double FeeRate = 0.0005;  // 수수료
-    private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
+    private const double PendingOrderTimeLimit = 20; // 미체결 주문 취소 기간
     private const double MaxTradeKRW = 500000;   // 매매 시 최대 금액
 
     private bool isHaveMarket = false;
@@ -110,23 +111,23 @@ public partial class TradePage : ContentPage
             /* ------------------------------- 매 수 -------------------------------*/
             if (TradeType.Buy.Equals(tradeType))
             {
-                double buyPrice = currPrice;
-                double buyQuantity = (tradeKRW * (1 - FeeRate)) / buyPrice;
+                double buyQuantity = (tradeKRW * (1 - FeeRate)) / currPrice;
 
-                if (buyPrice * buyQuantity > 5000 && isBuyCondition)
+                if (currPrice * buyQuantity > 5000 && isBuyCondition)
                 {
-                    MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, buyPrice, buyQuantity);
+                    MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        avgBuyPrice[market] = buyPrice;
-                        pendingBuyOrders[market] = (buyPrice, DateTime.Now, "bid");
+                        avgBuyPrice[market] = currPrice;
+                        entryCciByMarket[market] = cci9;
+                        pendingBuyOrders[market] = (currPrice, DateTime.Now, "bid");
 
-                        AddChatMessage($"🟢 매수: {market.Split('-')[1]}");
+                        AddChatMessage($"🟢 매수: {market.Split('-')[1]} | {currPrice * buyQuantity:C2}");
 
                     }
                     else
                     {
-                        AddChatMessage($"🚫 [Error] Buy order failed. Market: {market}, Price: {buyPrice:C2}, Quantity: {buyQuantity}");
+                        AddChatMessage($"🚫 [Error] Buy order failed. Market: {market}, Price: {currPrice:C2}, Quantity: {buyQuantity}");
                     }
                 }
             }
@@ -142,13 +143,15 @@ public partial class TradePage : ContentPage
                     MakeOrderMarketSell sellOrder = API.MakeOrderMarketSell(market, sellVolume);
                     if (sellOrder != null)
                     {
+                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgBuyPrice[market]) / avgBuyPrice[market] * 100:N3}%");
+                        
                         avgBuyPrice.Remove(market);
+                        entryCciByMarket.Remove(market);
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
 
                         // 매도 후 바로 매수 막기
                         waitBuyCondition[market] = DateTime.Now;
 
-                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {((currPrice - avgPrice) * sellVolume) - (currPrice * sellVolume * FeeRate + avgPrice * sellVolume * FeeRate):C2}");
 
                         totalProfit += ((currPrice - avgPrice) * sellVolume) - (currPrice * sellVolume * FeeRate + avgPrice * sellVolume * FeeRate);
                     }
@@ -190,6 +193,7 @@ public partial class TradePage : ContentPage
                     }
 
                     AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");
+                    entryCciByMarket.Remove(market);
                     pendingOrders.Remove(market);
                     break;
                 }

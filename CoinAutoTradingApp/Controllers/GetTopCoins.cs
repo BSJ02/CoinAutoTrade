@@ -50,7 +50,7 @@ public partial class TradePage : ContentPage
                 Volume = ticker.AccTradePrice
             })
             .OrderByDescending(market => market.Volume) // 거래대금 내림차순 정렬
-            .Take(20) // 상위 마켓 선택
+            .Take(25) // 상위 마켓 선택
             .ToList();
 
         var validMarkets = new List<string>();
@@ -66,7 +66,7 @@ public partial class TradePage : ContentPage
                 validMarkets.Add(marketData.Market);
             }
 
-            if (validMarkets.Count == 10) // 상위 10개만 선택
+            if (validMarkets.Count == 15) // 상위 15개만 선택
                 break;
         }
 
