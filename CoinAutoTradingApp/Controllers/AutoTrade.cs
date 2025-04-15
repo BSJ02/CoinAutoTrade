@@ -26,11 +26,11 @@ public partial class TradePage : ContentPage
     private Dictionary<string, (double price, DateTime time, string side)> pendingSellOrders;
 
     private Dictionary<string, DateTime> waitBuyCondition;
-    private Dictionary<string, double> entryCciByMarket;
+    private Dictionary<string, (double cci, double rsi)> entryCciRsiByMarket;
 
     private const double FeeRate = 0.0005;  // 수수료
     private const double PendingOrderTimeLimit = 20; // 미체결 주문 취소 기간
-    private const double MaxTradeKRW = 500000;   // 매매 시 최대 금액
+    private const double MaxTradeKRW = 600000;   // 매매 시 최대 금액
 
     private bool isHaveMarket = false;
 
@@ -119,7 +119,8 @@ public partial class TradePage : ContentPage
                     if (buyOrder != null)
                     {
                         avgBuyPrice[market] = currPrice;
-                        entryCciByMarket[market] = cci9;
+                        entryCciRsiByMarket[market] = (cci14, rsi);
+
                         pendingBuyOrders[market] = (currPrice, DateTime.Now, "bid");
 
                         AddChatMessage($"🟢 매수: {market.Split('-')[1]} | {currPrice * buyQuantity:C2}");
@@ -145,8 +146,13 @@ public partial class TradePage : ContentPage
                     {
                         AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgBuyPrice[market]) / avgBuyPrice[market] * 100:N3}%");
                         
-                        avgBuyPrice.Remove(market);
-                        entryCciByMarket.Remove(market);
+                        avgBuyPrice.Remove(market); // 평단가 제거
+
+                        if (entryCciRsiByMarket.ContainsKey(market))
+                        {
+                            entryCciRsiByMarket.Remove(market);    // 매수 시 CCI14 값 제거
+                        }
+
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
 
                         // 매도 후 바로 매수 막기
@@ -189,13 +195,18 @@ public partial class TradePage : ContentPage
                 {
                     if (!isHaveMarket)
                     {
-                        avgBuyPrice.Remove(market);
-                    }
+                        avgBuyPrice.Remove(market); // 평단가 제거
 
-                    AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");
-                    entryCciByMarket.Remove(market);
-                    pendingOrders.Remove(market);
-                    break;
+                        if (entryCciRsiByMarket.ContainsKey(market))
+                        {
+                            entryCciRsiByMarket.Remove(market);    // 매수 시 CCI14값 제거
+                        }
+
+                        AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");
+
+                        pendingOrders.Remove(market);
+                        break;
+                    }
                 }
             }
         }

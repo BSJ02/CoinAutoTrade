@@ -26,7 +26,7 @@ public partial class TradePage : ContentPage
         double prevRSI = Calculate.RSI(slicedCandles);
 
         bool isRsiCondition = prevRSI * (1.08 - (prevRSI / 1000)) < rsi &&
-                              rsi > 30 && rsi < 50;
+                              rsi > 30 && rsi < 55;
 
         // 2: CCI 상승
         int period = 2;
@@ -42,20 +42,24 @@ public partial class TradePage : ContentPage
             prevCCI14[i] = Calculate.CCI(slicedCandles, 14);
         }
 
+
+        double cci14ReboundGap = Math.Abs(prevCCI14[1]) - Math.Abs(prevCCI14[0]);
+        double cci9ReboundGap = Math.Abs(prevCCI9[1]) - Math.Abs(prevCCI9[0]);
+
         // CCI 반등
-        bool isCciReboundCondition = prevCCI14[1] - 40 > prevCCI14[0] &&
-                                     prevCCI9[1] - 40 > prevCCI9[0] &&
-                                     prevCCI14[0] + Math.Max(10, Math.Abs(prevCCI14[0] * 0.1)) < cci14 &&
-                                     prevCCI9[0] + Math.Max(12, Math.Abs(prevCCI9[0] * 0.12)) < cci9 &&
-                                     cci14 < 100 && cci9 < 100 && cci9 > -140;
+        bool isCciReboundCondition = cci14ReboundGap < -32 && cci9ReboundGap < -40 &&   // true면 급락 했음을 의미
+                                     prevCCI14[0] + Math.Max(8, Math.Abs(cci14ReboundGap * 0.08)) < cci14 &&
+                                     prevCCI9[0] + Math.Max(12, Math.Abs(cci9ReboundGap * 0.12)) < cci9 &&
+                                     cci14 > -130 && cci14 < 0 && 
+                                     cci9 > -130 && cci9 < 0;
 
         // CCI 연속 상승
-        bool isCciRisingCondition = prevCCI14[1] + Math.Max(26, Math.Abs(prevCCI14[0] * 0.26)) < prevCCI14[0] &&
-                                    prevCCI14[0] + Math.Max(8, Math.Abs(prevCCI14[0] * 0.8)) < cci14 &&
-                                    prevCCI9[1] + Math.Max(39, Math.Abs(prevCCI9[0] * 0.39)) < prevCCI9[0] &&
-                                    prevCCI9[0] + Math.Max(10, Math.Abs(prevCCI9[0] * 0.1)) < cci9 &&
-                                    cci14 > -100 && cci14 < 0 &&
-                                    cci9 > -100 && cci9 < 0;
+        bool isCciRisingCondition = prevCCI14[1] + Math.Max(24, Math.Abs(prevCCI14[0] * 0.24)) < prevCCI14[0] &&
+                                    prevCCI14[0] + Math.Max(8, Math.Abs(prevCCI14[0] * 0.08)) < cci14 &&
+                                    prevCCI9[1] + Math.Max(32, Math.Abs(prevCCI9[0] * 0.32)) < prevCCI9[0] &&
+                                    prevCCI9[0] + Math.Max(12, Math.Abs(prevCCI9[0] * 0.12)) < cci9 &&
+                                    cci14 > -100 && cci14 < -40 &&
+                                    cci9 > -100 && cci9 < -40;
 
         bool isCciCondition = isCciReboundCondition || isCciRisingCondition;
 
@@ -65,15 +69,15 @@ public partial class TradePage : ContentPage
 
         if (isCciReboundCondition)
         {
-            isTradPriceCondition = minCandles[0].LowPrice >= minCandles[1].LowPrice &&
+            isTradPriceCondition = minCandles[0].LowPrice > minCandles[1].LowPrice &&
                                    minCandles[0].TradePrice < Math.Min(minCandles[1].TradePrice, minCandles[0].LowPrice) + atr * 0.1 &&
-                                   minCandles[0].HighPrice < minCandles[0].TradePrice + atr * 0.5;
+                                   minCandles[0].HighPrice < minCandles[0].TradePrice + atr * 0.3;
         }
         else if (isCciRisingCondition)
         {
-            isTradPriceCondition = minCandles[0].LowPrice >= minCandles[1].LowPrice &&
-                                   minCandles[0].TradePrice < Math.Min(minCandles[1].TradePrice, minCandles[0].LowPrice) + atr * 0.15 &&
-                                   minCandles[0].HighPrice < minCandles[0].TradePrice + atr * 0.5;
+            isTradPriceCondition = minCandles[0].LowPrice > minCandles[1].LowPrice &&
+                                   minCandles[0].TradePrice < Math.Min(minCandles[1].TradePrice, minCandles[0].LowPrice) + atr * 0.12 &&
+                                   minCandles[0].HighPrice < minCandles[0].TradePrice + atr * 0.36;
         }
 
         // 디버그 메세지 추가
@@ -100,7 +104,7 @@ public partial class TradePage : ContentPage
         return count >= 3;
     }
 
-    public bool ShouldTakeProfit(double currPrice, double avgPrice, double cci9, double atr, double rsi,
+    public bool ShouldTakeProfit(double currPrice, double avgPrice, double cci14, double atr, double rsi,
                                  List<CandleMinute> minCandles)
     {
         if (!isHaveMarket)
@@ -109,23 +113,26 @@ public partial class TradePage : ContentPage
         string market = minCandles[0].Market;
         var slicedCandles = minCandles.Skip(1).ToList();
 
-        avgPrice = avgPrice * (1 + FeeRate);
-        return avgPrice < currPrice &&
-              (
-                  // atr 손절
-                  (cci9 < entryCciByMarket[market] + 25 && currPrice >= avgPrice + atr * 0.25) ||
-                  (cci9 < entryCciByMarket[market] + 55 && currPrice >= avgPrice + atr * 0.5) ||
-                  (cci9 < entryCciByMarket[market] + 75 && currPrice >= avgPrice + atr * 0.75) ||
-                  (cci9 < entryCciByMarket[market] + 100 && currPrice >= avgPrice + atr) ||
-                  (cci9 < entryCciByMarket[market] + 125 && currPrice >= avgPrice + atr * 1.25) ||
-                  (cci9 < entryCciByMarket[market] + 150 && currPrice >= avgPrice + atr * 1.5) ||
-                  // cci 손절
-                  cci9 < entryCciByMarket[market] - Math.Max(10, Math.Abs(entryCciByMarket[market] * 0.1))
-              );
+        entryCciRsiByMarket[market] = (Math.Max(entryCciRsiByMarket[market].cci, cci14), Math.Max(entryCciRsiByMarket[market].rsi, rsi));
+
+        double maxCCI = entryCciRsiByMarket[market].cci;
+        double maxRsi = entryCciRsiByMarket[market].rsi;
+
+        double prevRSI = Calculate.RSI(slicedCandles);
+        double prevCCI14 = Calculate.CCI(slicedCandles, 14);
+
+        bool isCciCondition = cci14 < maxCCI - Math.Max(5, Math.Abs(maxCCI) * 0.05);
+        bool isRsiCondition = maxRsi * (1 - (maxRsi / 1500)) > rsi;
+
+        avgPrice = avgPrice * (1 + FeeRate * 2);
+
+        return avgPrice + atr * 0.2 < currPrice &&
+               isCciCondition &&
+               isRsiCondition;
     }
 
     public bool ShouldStopLoss(double currPrice, double avgPrice, double atr,
-                               List<CandleMinute> minCandles, double atrMultiplier = 1.1, double stopLossPercent = 0.01)
+                               List<CandleMinute> minCandles, double atrMultiplier = 1.1, double stopLossPercent = 0.005)
     {
         if (!isHaveMarket)
             return false;
@@ -148,7 +155,7 @@ public partial class TradePage : ContentPage
         bool isTechnicalPullbackEntry = IsTechnicalPullbackEntry(dmi, keltner, bollingerBands, cci9, cci14, rsi, atr, minCandles) && isKRWHeld;
 
         // 익절 (매도)
-        bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, cci9, atr, rsi, minCandles);
+        bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, cci14, atr, rsi, minCandles);
         // 손절 (매도)
         bool isStopLoss = ShouldStopLoss(currPrice, avgPrice, atr, minCandles);
         

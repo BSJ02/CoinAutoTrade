@@ -31,7 +31,7 @@ public partial class TradePage : ContentPage
         pendingSellOrders = new Dictionary<string, (double, DateTime, string)>();
 
         waitBuyCondition = new Dictionary<string, DateTime>();
-        entryCciByMarket = new Dictionary<string, double>();
+        entryCciRsiByMarket = new Dictionary<string, (double cci, double rsi)>();
 
         debugMessageResetTime = DateTime.Now;
         resetTimeLimit = 120;
