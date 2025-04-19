@@ -27,11 +27,17 @@ public partial class TradePage : ContentPage
         DebugMessages = new ObservableCollection<ChatMessage>();
 
         avgBuyPrice = new Dictionary<string, double>();
+        prevAvgBuyPrice = new Dictionary<string, double>();
+
         pendingBuyOrders = new Dictionary<string, (double, DateTime, string)>();
         pendingSellOrders = new Dictionary<string, (double, DateTime, string)>();
 
-        waitBuyCondition = new Dictionary<string, DateTime>();
-        entryCciRsiByMarket = new Dictionary<string, (double cci, double rsi)>();
+        waitBuyTime = new Dictionary<string, DateTime>();
+
+        marketTouchedBandHigh = new Dictionary<string, bool>();
+        marketTouchedBandMiddle = new Dictionary<string, bool>();
+
+        marketBuyCount = new Dictionary<string, double>();
 
         debugMessageResetTime = DateTime.Now;
         resetTimeLimit = 120;
@@ -51,6 +57,7 @@ public partial class TradePage : ContentPage
         tradeLoopTokenSource = new CancellationTokenSource();
         CancellationToken token = tradeLoopTokenSource.Token;
 
+        totalProfit = API.GetKRW().totalKRW;
         tradStartTime = DateTime.Now;
 
         Task.Run(async () =>
@@ -67,7 +74,7 @@ public partial class TradePage : ContentPage
                     AddDebugMessage($"❌ 자동 매매 중 오류 발생: {ex.Message}");
                 }
 
-                await Task.Delay(3000);
+                await Task.Delay(1000);
 
 
                 if ((DateTime.Now - debugMessageResetTime).TotalSeconds > resetTimeLimit)
@@ -89,7 +96,7 @@ public partial class TradePage : ContentPage
             tradeLoopTokenSource.Dispose();
             tradeLoopTokenSource = null;
             AddChatMessage("🛑 자동 매매 중지됨.");
-            AddChatMessage($"시간: {(int)(tradEndTime - tradStartTime).TotalMinutes}분 : {totalProfit:C2}");
+            AddChatMessage($"시간: {(int)(tradEndTime - tradStartTime).TotalMinutes}분 : {API.GetKRW().totalKRW - totalProfit:C2}");
         }
     }
 }

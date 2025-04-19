@@ -38,7 +38,6 @@ public partial class TradePage : ContentPage
     {
         var markets = API.GetMarketAll();
 
-
         var marketCodes = string.Join(",", markets.Select(m => m.Market));
         var tickers = API.GetTicker(marketCodes);
 
@@ -50,14 +49,14 @@ public partial class TradePage : ContentPage
                 Volume = ticker.AccTradePrice
             })
             .OrderByDescending(market => market.Volume) // 거래대금 내림차순 정렬
-            .Take(25) // 상위 마켓 선택
+            .Take(10) // 상위 마켓 선택
             .ToList();
 
         var validMarkets = new List<string>();
 
         foreach (var marketData in marketVolumes)
         {
-            var candles = API.GetCandleMinutes(marketData.Market, (CandleUnit)5, DateTime.UtcNow, 110)
+            var candles = API.GetCandleMinutes(marketData.Market, (CandleUnit)1, DateTime.UtcNow, 110)
                              ?.Cast<CandleMinute>()
                              .ToList();
 
@@ -66,13 +65,13 @@ public partial class TradePage : ContentPage
                 validMarkets.Add(marketData.Market);
             }
 
-            if (validMarkets.Count == 15) // 상위 15개만 선택
+            if (validMarkets.Count == 8)
                 break;
         }
 
         var selectedMarketsString = string.Join(", ", validMarkets);
         SetSelectedMarkets(selectedMarketsString); // SetSelectedMarkets 호출
 
-        AddDebugMessage($"✅ 거래대금 상위 10개 마켓이 자동 매매 대상에 설정되었습니다: {selectedMarketsString}");
+        AddDebugMessage($"✅ 거래대금 상위 8개 마켓이 자동 매매 대상에 설정되었습니다: {selectedMarketsString}");
     }
 }

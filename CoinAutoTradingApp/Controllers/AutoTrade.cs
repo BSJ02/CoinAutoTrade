@@ -19,19 +19,25 @@ public partial class TradePage : ContentPage
     private APIClass API;
     private List<string> selectedMarkets = new List<string>(); // ✅ 선택한 코인 리스트
     private Dictionary<string, double> avgBuyPrice; // 평단가 저장
+    private Dictionary<string, double> prevAvgBuyPrice; // 미체결 시 주문 다시 돌아감
     private CancellationTokenSource tradeLoopTokenSource;
 
     // 미체결 주문 취소 (bid: 매수, ask: 매도)
     private Dictionary<string, (double price, DateTime time, string side)> pendingBuyOrders;
     private Dictionary<string, (double price, DateTime time, string side)> pendingSellOrders;
 
-    private Dictionary<string, DateTime> waitBuyCondition;
-    private Dictionary<string, (double cci, double rsi)> entryCciRsiByMarket;
+    private Dictionary<string, DateTime> waitBuyTime;
+
+    private Dictionary<string, bool> marketTouchedBandHigh;
+    private Dictionary<string, bool> marketTouchedBandMiddle;
+
+    private Dictionary<string, double> marketBuyCount;
 
     private const double FeeRate = 0.0005;  // 수수료
     private const double PendingOrderTimeLimit = 20; // 미체결 주문 취소 기간
-    private const double MaxTradeKRW = 600000;   // 매매 시 최대 금액
+    private const double MaxTradeKRW = 130000;   // 매매 시 최대 금액
 
+    private string targetMarket = "";
     private bool isHaveMarket = false;
 
     // ✅ 프로그램 시작 후, 기존 보유 코인의 avgBuyPrice 세팅
@@ -51,6 +57,7 @@ public partial class TradePage : ContentPage
                 if (balance > 0)
                 {
                     avgBuyPrice[market] = avgPrice; // ✅ 이미 보유한 코인의 평균 매수가 초기화
+                    prevAvgBuyPrice[market] = avgBuyPrice[market];
                     AddDebugMessage($"🔄 기존 보유 코인 추가: {market} | 평단가: {avgPrice:N2} ₩");
                 }
             }
@@ -62,7 +69,11 @@ public partial class TradePage : ContentPage
     {
         foreach (var market in selectedMarkets)
         {
-            var minCandles = API.GetCandleMinutes(market, (CandleUnit)5, DateTime.UtcNow, 110)?.Cast<CandleMinute>().ToList();
+            if (targetMarket != "" &&   // 주문할 마켓 탐색
+                targetMarket != market) // 해당 마켓만 매매
+                continue;
+
+            var minCandles = API.GetCandleMinutes(market, (CandleUnit)1, DateTime.UtcNow, 110)?.Cast<CandleMinute>().ToList();
             if (minCandles == null || minCandles.Count < 110)
             {
                 AddDebugMessage($"⚠️ {market} 캔들 데이터 부족");
@@ -72,7 +83,6 @@ public partial class TradePage : ContentPage
             isHaveMarket = API.IsHaveMarket(market);
 
             double availableKRW = API.GetKRW().availableKRW;
-            double tradeKRW = availableKRW > MaxTradeKRW ? MaxTradeKRW : availableKRW;
 
             double prevPrice = minCandles[1].TradePrice;
             double currPrice = minCandles[0].TradePrice;
@@ -97,8 +107,7 @@ public partial class TradePage : ContentPage
             CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());
             CancelPendingOrder(pendingSellOrders, market, OrderSide.ask.ToString());
 
-
-            bool isBuyCondition = !pendingBuyOrders.ContainsKey(market) && !avgBuyPrice.ContainsKey(market);
+            bool isBuyCondition = !pendingBuyOrders.ContainsKey(market);
 
             // 매매
             var tradeType = EvaluateTradeConditions(
@@ -111,20 +120,52 @@ public partial class TradePage : ContentPage
             /* ------------------------------- 매 수 -------------------------------*/
             if (TradeType.Buy.Equals(tradeType))
             {
+                if (isHaveMarket)
+                {
+                    marketBuyCount[market]++;
+                }
+                else
+                {
+                    marketBuyCount[market] = 1;
+                }
+                
+                double tradeKRW = availableKRW > MaxTradeKRW ? MaxTradeKRW : availableKRW;
+                if (marketBuyCount[market] > 1)
+                {
+                    double buyMultiplier = Math.Pow(2, marketBuyCount[market] - 2);
+                    tradeKRW = availableKRW > MaxTradeKRW * buyMultiplier ? MaxTradeKRW * buyMultiplier : availableKRW;
+                }
+
                 double buyQuantity = (tradeKRW * (1 - FeeRate)) / currPrice;
 
                 if (currPrice * buyQuantity > 5000 && isBuyCondition)
                 {
+                    double haveBalance = API.GetBalance(market);
+
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        avgBuyPrice[market] = currPrice;
-                        entryCciRsiByMarket[market] = (cci14, rsi);
+                        targetMarket = market;
+
+                        if (avgBuyPrice.ContainsKey(market))
+                        {
+                            prevAvgBuyPrice[market] = avgBuyPrice[market];
+                            avgBuyPrice[market] = ((avgBuyPrice[market] * haveBalance) + (currPrice * buyQuantity)) / (haveBalance + buyQuantity);
+                        }
+                        else
+                        {
+                            avgBuyPrice[market] = currPrice;
+                            prevAvgBuyPrice[market] = avgBuyPrice[market];
+                        }
+
+                        marketTouchedBandHigh[market] = false;
+                        marketTouchedBandMiddle[market] = false;
+
+                        waitBuyTime[market] = DateTime.Now; // 급락 때 연속 매수 방지
 
                         pendingBuyOrders[market] = (currPrice, DateTime.Now, "bid");
 
-                        AddChatMessage($"🟢 매수: {market.Split('-')[1]} | {currPrice * buyQuantity:C2}");
-
+                        AddChatMessage($"🟢 매수: {market.Split('-')[1]} | 입장가: {currPrice:C2}");
                     }
                     else
                     {
@@ -144,22 +185,23 @@ public partial class TradePage : ContentPage
                     MakeOrderMarketSell sellOrder = API.MakeOrderMarketSell(market, sellVolume);
                     if (sellOrder != null)
                     {
-                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgBuyPrice[market]) / avgBuyPrice[market] * 100:N3}%");
-                        
-                        avgBuyPrice.Remove(market); // 평단가 제거
+                        targetMarket = "";
 
-                        if (entryCciRsiByMarket.ContainsKey(market))
+                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgPrice * (1 + FeeRate * 2)) / avgPrice * 100:N3}%");
+
+                        avgBuyPrice.Remove(market); // 평단가 제거
+                        prevAvgBuyPrice.Remove(market);
+
+                        if (marketTouchedBandHigh.ContainsKey(market))
                         {
-                            entryCciRsiByMarket.Remove(market);    // 매수 시 CCI14 값 제거
+                            marketTouchedBandHigh.Remove(market);
+                        }
+                        if (marketTouchedBandMiddle.ContainsKey(market))
+                        {
+                            marketTouchedBandMiddle.Remove(market);
                         }
 
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
-
-                        // 매도 후 바로 매수 막기
-                        waitBuyCondition[market] = DateTime.Now;
-
-
-                        totalProfit += ((currPrice - avgPrice) * sellVolume) - (currPrice * sellVolume * FeeRate + avgPrice * sellVolume * FeeRate);
                     }
                     else
                     {
@@ -179,6 +221,11 @@ public partial class TradePage : ContentPage
 
         if ((DateTime.Now - pendingOrders[market].time).TotalSeconds > PendingOrderTimeLimit)
         {
+            if (!isHaveMarket)
+            {
+                targetMarket = "";
+            }
+
             var openOrders = API.GetOpenOrders(market);
             if (openOrders == null || openOrders.Count == 0)
             {
@@ -195,18 +242,28 @@ public partial class TradePage : ContentPage
                 {
                     if (!isHaveMarket)
                     {
-                        avgBuyPrice.Remove(market); // 평단가 제거
-
-                        if (entryCciRsiByMarket.ContainsKey(market))
-                        {
-                            entryCciRsiByMarket.Remove(market);    // 매수 시 CCI14값 제거
-                        }
-
-                        AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");
-
-                        pendingOrders.Remove(market);
-                        break;
+                        avgBuyPrice.Remove(market);
+                        prevAvgBuyPrice.Remove(market);
                     }
+                    else
+                    {
+                        avgBuyPrice[market] = prevAvgBuyPrice[market];
+                    }
+                     
+
+                    if (marketTouchedBandHigh.ContainsKey(market))
+                    {
+                        marketTouchedBandHigh.Remove(market);
+                    }
+                    if (marketTouchedBandMiddle.ContainsKey(market))
+                    {
+                        marketTouchedBandMiddle.Remove(market);
+                    }
+
+                    AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");
+
+                    pendingOrders.Remove(market);
+                    break;
                 }
             }
         }
