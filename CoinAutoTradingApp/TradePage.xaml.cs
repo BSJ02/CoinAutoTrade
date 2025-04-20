@@ -75,7 +75,7 @@ public partial class TradePage : ContentPage
                     AddDebugMessage($"❌ 자동 매매 중 오류 발생: {ex.Message}");
                 }
 
-                await Task.Delay(1000);
+                await Task.Delay(300);
 
 
                 if ((DateTime.Now - debugMessageResetTime).TotalSeconds > resetTimeLimit)
