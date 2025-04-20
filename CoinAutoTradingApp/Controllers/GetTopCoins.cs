@@ -49,7 +49,7 @@ public partial class TradePage : ContentPage
                 Volume = ticker.AccTradePrice
             })
             .OrderByDescending(market => market.Volume) // 거래대금 내림차순 정렬
-            .Take(10) // 상위 마켓 선택
+            .Take(15) // 상위 마켓 선택
             .ToList();
 
         var validMarkets = new List<string>();
@@ -60,7 +60,7 @@ public partial class TradePage : ContentPage
                              ?.Cast<CandleMinute>()
                              .ToList();
 
-            if (candles != null && candles.Count >= 110)
+            if (candles != null && candles.Count >= 110 && !marketData.Market.Contains("BTC") && !marketData.Market.Contains("XRP"))
             {
                 validMarkets.Add(marketData.Market);
             }

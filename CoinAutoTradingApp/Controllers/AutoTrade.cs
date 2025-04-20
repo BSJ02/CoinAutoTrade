@@ -28,14 +28,16 @@ public partial class TradePage : ContentPage
 
     private Dictionary<string, DateTime> waitBuyTime;
 
+    private Dictionary<string, double> marketBuyCci;
     private Dictionary<string, bool> marketTouchedBandHigh;
     private Dictionary<string, bool> marketTouchedBandMiddle;
 
     private Dictionary<string, double> marketBuyCount;
+    private const int marketBuyCountLimit = 3;  // 추가 매수 최대 횟수
 
     private const double FeeRate = 0.0005;  // 수수료
     private const double PendingOrderTimeLimit = 20; // 미체결 주문 취소 기간
-    private const double MaxTradeKRW = 130000;   // 매매 시 최대 금액
+    private const double MaxTradeKRW = 250000;   // 매매 시 최대 금액
 
     private string targetMarket = "";
     private bool isHaveMarket = false;
@@ -147,6 +149,7 @@ public partial class TradePage : ContentPage
                     {
                         targetMarket = market;
 
+                        // 딕셔너리 초기화
                         if (avgBuyPrice.ContainsKey(market))
                         {
                             prevAvgBuyPrice[market] = avgBuyPrice[market];
@@ -157,6 +160,8 @@ public partial class TradePage : ContentPage
                             avgBuyPrice[market] = currPrice;
                             prevAvgBuyPrice[market] = avgBuyPrice[market];
                         }
+
+                        marketBuyCci[market] = cci9;
 
                         marketTouchedBandHigh[market] = false;
                         marketTouchedBandMiddle[market] = false;
@@ -192,14 +197,10 @@ public partial class TradePage : ContentPage
                         avgBuyPrice.Remove(market); // 평단가 제거
                         prevAvgBuyPrice.Remove(market);
 
-                        if (marketTouchedBandHigh.ContainsKey(market))
-                        {
-                            marketTouchedBandHigh.Remove(market);
-                        }
-                        if (marketTouchedBandMiddle.ContainsKey(market))
-                        {
-                            marketTouchedBandMiddle.Remove(market);
-                        }
+                        marketBuyCci.Remove(market);
+
+                        marketTouchedBandHigh.Remove(market);
+                        marketTouchedBandMiddle.Remove(market);
 
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
                     }

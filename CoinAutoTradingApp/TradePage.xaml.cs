@@ -34,6 +34,7 @@ public partial class TradePage : ContentPage
 
         waitBuyTime = new Dictionary<string, DateTime>();
 
+        marketBuyCci = new Dictionary<string, double>();
         marketTouchedBandHigh = new Dictionary<string, bool>();
         marketTouchedBandMiddle = new Dictionary<string, bool>();
 
