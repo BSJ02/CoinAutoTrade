@@ -146,42 +146,66 @@ public partial class TradePage : ContentPage
         return count >= 6;
     }
 
-    public bool IsBuyConditionTHREE((double upper, double middle, double lower) keltner,
+    public bool IsBuyConditionTHREE(double atr,
+                                    (double upper, double middle, double lower) keltner,
                                     (double upperBand, double lowerBand, double movingAverage) bollingerBands,
                                      double cci9, double rsi, List<CandleMinute> minCandles)
     {
         if (isHaveMarket)
             return false;
 
-        // 2분 전 캔들
-        var prevCandles = minCandles.Skip(2).ToList();
-        var prevBollinger = Calculate.BollingerBands(prevCandles);
-        var prevKeltner = Calculate.KeltnerChannel(prevCandles);
+        bool isCciCondition = false;
 
-        bool isTouchedBandLow = prevCandles[0].LowPrice <= (prevBollinger.lowerBand + prevKeltner.lower) / 2 &&
-                                prevCandles[0].TradePrice < prevCandles[0].OpeningPrice;
+        bool isTouchedBandLow = false;
+        double prevHighLowGap = 0;
 
-        // 1분 전 캔들
-        if (isTouchedBandLow)
+        // 2분 전 음봉 확인
+        var candleTwoMinAgo = minCandles[2];
+        if (candleTwoMinAgo.TradePrice < candleTwoMinAgo.OpeningPrice)
         {
-            prevCandles = minCandles.Skip(1).ToList();
-            prevBollinger = Calculate.BollingerBands(prevCandles);
-            prevKeltner = Calculate.KeltnerChannel(prevCandles);
+            var candleOneMinAgo = minCandles[1];
+            var prevCandles = minCandles.Skip(1).ToList();
+            var prevBollinger = Calculate.BollingerBands(prevCandles);
+            var prevKeltner = Calculate.KeltnerChannel(prevCandles);
+            double bandThreshold = Math.Min(prevBollinger.lowerBand, prevKeltner.lower);
 
-            isTouchedBandLow = prevCandles[0].LowPrice <= Math.Min(prevBollinger.lowerBand, prevKeltner.lower) &&
-                               prevCandles[0].TradePrice < prevCandles[0].OpeningPrice;
+            if (candleOneMinAgo.LowPrice <= bandThreshold - atr)
+            {
+                isTouchedBandLow = candleOneMinAgo.OpeningPrice - atr * 2 > candleOneMinAgo.TradePrice && 
+                                   candleOneMinAgo.TradePrice < candleOneMinAgo.OpeningPrice &&
+                                   candleOneMinAgo.TradePrice > candleOneMinAgo.LowPrice;
+
+                prevHighLowGap = Math.Abs(candleOneMinAgo.OpeningPrice - candleOneMinAgo.TradePrice) / 2;
+
+                isCciCondition = cci9 > -160;
+            }
+            else if (candleOneMinAgo.LowPrice <= bandThreshold)
+            {
+                var candlesBeforeThat = minCandles.Skip(2).ToList();
+                var pastBollinger = Calculate.BollingerBands(candlesBeforeThat);
+                var pastKeltner = Calculate.KeltnerChannel(candlesBeforeThat);
+                double averageLowerBand = (pastBollinger.lowerBand + pastKeltner.lower) / 2;
+
+                isTouchedBandLow = candleTwoMinAgo.LowPrice <= averageLowerBand &&
+                                   candleTwoMinAgo.TradePrice < candleTwoMinAgo.OpeningPrice &&
+                                   candleOneMinAgo.TradePrice > candleOneMinAgo.LowPrice;
+
+                prevHighLowGap = Math.Max(
+                    Math.Abs(candleOneMinAgo.OpeningPrice - candleOneMinAgo.TradePrice),
+                    Math.Abs(candleTwoMinAgo.OpeningPrice - candleTwoMinAgo.TradePrice)
+                );
+
+                isCciCondition = cci9 > -140;
+            }
         }
 
-        double prevHighLowGap = Math.Max(Math.Abs(minCandles[1].OpeningPrice - minCandles[1].TradePrice),
-                                         Math.Abs(minCandles[2].OpeningPrice - minCandles[2].TradePrice));
         double openingPrice = minCandles[0].OpeningPrice;
 
         bool isPriceUpByRatioOfPrevGap = minCandles[0].TradePrice >= openingPrice + (prevHighLowGap * 0.15) &&
                                          minCandles[0].TradePrice <= openingPrice + (prevHighLowGap * 0.3) &&
                                          minCandles[0].TradePrice < Math.Min(bollingerBands.movingAverage, keltner.middle) &&
-                                         minCandles[0].LowPrice >= minCandles[1].TradePrice;
-
-        bool isCciCondition = cci9 > -140;
+                                         minCandles[0].LowPrice >= minCandles[1].TradePrice &&
+                                         minCandles[0].TradePrice <= minCandles[1].TradePrice + prevHighLowGap * 0.45;
 
         // 디버그 메세지 추가
         string debugMessage = "";
@@ -261,7 +285,8 @@ public partial class TradePage : ContentPage
                    isThouchedBandHigh ||
                    isAboveEntryPlusAtr ||
                    isThouchedBandMiddle ||
-                   avgPrice > Math.Min(bollingerBands.movingAverage, keltner.middle) + atr * 0.2
+                   avgPrice > Math.Min(bollingerBands.movingAverage, keltner.middle) + atr * 0.2 ||
+                   (marketBuyCount[market] > marketBuyCountLimit)
                );
     }
 
@@ -292,7 +317,7 @@ public partial class TradePage : ContentPage
         // (매수)
         bool isBuyConditionONE = IsBuyConditionONE(keltner, bollingerBands, cci9, rsi, atr, minCandles) && isKRWHeld;
         bool isBuyConditionTWO = IsBuyConditionTWO(keltner, bollingerBands, cci9, rsi, minCandles);
-        bool isBuyConditionTHREE = IsBuyConditionTHREE(keltner, bollingerBands, cci9, rsi, minCandles);
+        bool isBuyConditionTHREE = IsBuyConditionTHREE(atr, keltner, bollingerBands, cci9, rsi, minCandles);
         // 추가 매수
         bool isExecuteAdditionalBuy = ExecuteAdditionalBuy(currPrice, avgPrice, cci9, keltner, bollingerBands, minCandles);
 
