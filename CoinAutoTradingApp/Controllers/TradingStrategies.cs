@@ -213,6 +213,8 @@ public partial class TradePage : ContentPage
         marketTouchedBandHigh[market] = false;
         marketTouchedBandMiddle[market] = false;
 
+        marketBuyCci[market] = cci9;
+
         bool isCciCondition = cci9 > -150;
         bool isTradePriceCondition = avgPrice * (1 - executeAddPercent) > currPrice;
 
@@ -235,7 +237,7 @@ public partial class TradePage : ContentPage
         }
         if (!marketTouchedBandMiddle[market])
         {
-            marketTouchedBandMiddle[market] = minCandles[0].TradePrice >= (bollingerBands.movingAverage + keltner.middle) / 2;
+            marketTouchedBandMiddle[market] = minCandles[0].TradePrice >= Math.Max(bollingerBands.movingAverage, keltner.middle);
         }
 
         bool isThouchedBandHigh = marketTouchedBandHigh[market] && cci9 < marketBuyCci[market] + 230;
@@ -251,7 +253,7 @@ public partial class TradePage : ContentPage
                    isThouchedBandHigh ||
                    isAboveEntryPlusAtr ||
                    isThouchedBandMiddle ||
-                   avgPrice > Math.Max(bollingerBands.movingAverage, keltner.middle)
+                   avgPrice > Math.Min(bollingerBands.movingAverage, keltner.middle) + atr * 0.2
                );
     }
 
