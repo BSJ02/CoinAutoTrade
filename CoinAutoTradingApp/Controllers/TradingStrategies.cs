@@ -187,7 +187,8 @@ public partial class TradePage : ContentPage
                 double averageLowerBand = (pastBollinger.lowerBand + pastKeltner.lower) / 2;
 
                 isTouchedBandLow = candleTwoMinAgo.LowPrice <= averageLowerBand &&
-                                   candleTwoMinAgo.TradePrice < candleTwoMinAgo.OpeningPrice &&
+                                   candleTwoMinAgo.TradePrice > candleTwoMinAgo.LowPrice &&
+                                   candleOneMinAgo.TradePrice < candleOneMinAgo.OpeningPrice &&
                                    candleOneMinAgo.TradePrice > candleOneMinAgo.LowPrice;
 
                 prevHighLowGap = Math.Max(
@@ -205,7 +206,7 @@ public partial class TradePage : ContentPage
                                          minCandles[0].TradePrice <= openingPrice + (prevHighLowGap * 0.3) &&
                                          minCandles[0].TradePrice < Math.Min(bollingerBands.movingAverage, keltner.middle) &&
                                          minCandles[0].LowPrice >= minCandles[1].TradePrice &&
-                                         minCandles[0].TradePrice <= minCandles[1].TradePrice + prevHighLowGap * 0.45;
+                                         minCandles[0].HighPrice <= minCandles[1].TradePrice + prevHighLowGap * 0.45;
 
         // 디버그 메세지 추가
         string debugMessage = "";
@@ -274,7 +275,9 @@ public partial class TradePage : ContentPage
 
         bool isThouchedBandHigh = marketTouchedBandHigh[market] && cci9 < marketBuyCci[market] + 220;
         bool isThouchedBandMiddle = marketTouchedBandMiddle[market] && cci9 < marketBuyCci[market] + 160;
-        bool isAboveEntryPlusAtr = currPrice > avgPrice + atr && cci9 < marketBuyCci[market] + 100;
+        bool isAboveEntryPlusAtr = currPrice > avgPrice + atr * 0.8 && cci9 < marketBuyCci[market] + 80 ||
+                                   currPrice > avgPrice + atr && cci9 < marketBuyCci[market] + 100 ||
+                                   currPrice > avgPrice + atr * 1.5 && cci9 < marketBuyCci[market] + 150;
 
         double haveBalance = API.GetBalance(market);
         bool isAboveBreakevenPrice = currPrice * haveBalance >

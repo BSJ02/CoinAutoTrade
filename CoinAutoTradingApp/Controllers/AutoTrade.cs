@@ -197,6 +197,7 @@ public partial class TradePage : ContentPage
                         avgBuyPrice.Remove(market); // 평단가 제거
                         prevAvgBuyPrice.Remove(market);
 
+                        marketBuyCount.Remove(market);
                         marketBuyCci.Remove(market);
 
                         marketTouchedBandHigh.Remove(market);
@@ -250,7 +251,15 @@ public partial class TradePage : ContentPage
                     {
                         avgBuyPrice[market] = prevAvgBuyPrice[market];
                     }
-                     
+
+                    if (marketBuyCount.ContainsKey(market))
+                    {
+                        marketBuyCount[market]--;
+                    }
+                    else
+                    {
+                        marketBuyCount.Remove(market);
+                    }
 
                     if (marketTouchedBandHigh.ContainsKey(market))
                     {
