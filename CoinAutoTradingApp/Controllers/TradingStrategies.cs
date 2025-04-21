@@ -86,8 +86,8 @@ public partial class TradePage : ContentPage
     }
 
     public bool IsBuyConditionTWO((double upper, double middle, double lower) keltner,
-                                (double upperBand, double lowerBand, double movingAverage) bollingerBands,
-                                 double cci9, double rsi, List<CandleMinute> minCandles)
+                                  (double upperBand, double lowerBand, double movingAverage) bollingerBands,
+                                   double cci9, double rsi, List<CandleMinute> minCandles)
     {
         if (isHaveMarket)
             return false;
@@ -95,27 +95,43 @@ public partial class TradePage : ContentPage
 
         // ✅ 필수 조건
 
+
+        // 0: 상승 추세 확인
+        int quarterCandleCount = 25;
+
+        var recentQuarterCandles = minCandles.Take(quarterCandleCount);
+        var oneQuartersAgoCandles = minCandles.Skip(quarterCandleCount).Take(quarterCandleCount);
+        var twoQuartersAgoCandles = minCandles.Skip(quarterCandleCount * 2).Take(quarterCandleCount);
+
+        double recentQuarterLow = recentQuarterCandles.Min(c => c.LowPrice);
+        double oneQuartersAgoLow = oneQuartersAgoCandles.Min(c => c.LowPrice);
+        double twoQuartersAgoLow = twoQuartersAgoCandles.Min(c => c.LowPrice);
+
+        double averageQuarterLowGap = Math.Min(recentQuarterLow - oneQuartersAgoLow, oneQuartersAgoLow - twoQuartersAgoLow);
+
+        bool isUptrend = minCandles[0].TradePrice > recentQuarterLow && recentQuarterLow > oneQuartersAgoLow && oneQuartersAgoLow > twoQuartersAgoLow;
+
+        if (recentQuarterLow - averageQuarterLowGap > minCandles[0].TradePrice)
+            return false;
+
         // 1: CCI 일정 값
         bool isCciCondition = cci9 > -120 && cci9 < 20;
 
         // 2: RSI 일정 값
         bool isRsiCondition = rsi > 30 && rsi < 60;
 
-        // 3: 음봉 이후 아래꼬리가 긴 캔들 나오는지 확인
-        double prevHighLowGap = Math.Abs(minCandles[3].HighPrice - minCandles[3].LowPrice);
-        double prevLowTradeGap = Math.Abs(minCandles[3].TradePrice - Math.Min(minCandles[3].OpeningPrice, minCandles[3].TradePrice));
+        // 3: 음봉 및 밴드에 닿았는지 확인
+        var prevCandles = minCandles.Skip(2).ToList();
+        var prevBollingerBands = Calculate.BollingerBands(prevCandles);
+        var prevKeltner = Calculate.KeltnerChannel(prevCandles);
 
-        bool isLongLowerWick = minCandles[4].TradePrice < minCandles[4].OpeningPrice &&
-                               minCandles[3].TradePrice < minCandles[3].OpeningPrice &&
-                               prevHighLowGap * 0.5 < prevLowTradeGap;
+        bool isBlueCandle = prevCandles[0].TradePrice < prevCandles[0].OpeningPrice &&
+                            prevCandles[0].LowPrice <= (prevBollingerBands.lowerBand + prevKeltner.lower) / 2;
 
-        // 4: 도지 캔들 화인
-        bool isDojiCandle = Math.Abs(minCandles[2].OpeningPrice - minCandles[2].TradePrice) <= (minCandles[2].HighPrice - minCandles[2].LowPrice) * 0.05;
-
-        // 5: 이전 캔들 양봉 확인
+        // 4: 이전 캔들 양봉 확인
         bool isBullishCandle = minCandles[1].TradePrice > minCandles[1].OpeningPrice;
 
-        // 6: 오픈가로 매수
+        // 5: 오픈가로 매수
         bool isTradPriceCondition = minCandles[0].TradePrice <= minCandles[0].OpeningPrice &&
                                     minCandles[0].TradePrice < Math.Min(bollingerBands.movingAverage, keltner.middle);
 
@@ -126,16 +142,15 @@ public partial class TradePage : ContentPage
         // 🔢 필수 조건 카운트
         if (isCciCondition) { debugMessage += "| CCI "; count++; }
         if (isRsiCondition) { debugMessage += "| RSI "; count++; }
-        if (isLongLowerWick) { debugMessage += "| LW "; count++; }
+        if (isUptrend) { debugMessage += "| UP "; count++; }
         if (isBullishCandle) { debugMessage += "| BC "; count++; }
-        if (isDojiCandle) { debugMessage += "| DO "; count++; }
         if (isTradPriceCondition)
         {
             debugMessage += "| Price ";
             count++;
         }
 
-        if (!string.IsNullOrEmpty(debugMessage) && count >= 5)
+        if (!string.IsNullOrEmpty(debugMessage) && count >= 4)
         {
             debugMessage = $"{count}/6 {debugMessage}";
             AddDebugMessage(debugMessage);
@@ -143,7 +158,7 @@ public partial class TradePage : ContentPage
             AddDebugMessage(minCandles[0].Market);
         }
 
-        return count >= 6;
+        return count >= 5;
     }
 
     public bool IsBuyConditionTHREE(double atr,
@@ -169,7 +184,7 @@ public partial class TradePage : ContentPage
             var prevKeltner = Calculate.KeltnerChannel(prevCandles);
             double bandThreshold = Math.Min(prevBollinger.lowerBand, prevKeltner.lower);
 
-            if (candleOneMinAgo.LowPrice <= bandThreshold - atr)
+            if (candleOneMinAgo.TradePrice <= bandThreshold - atr)
             {
                 isTouchedBandLow = candleOneMinAgo.OpeningPrice - atr * 2 > candleOneMinAgo.TradePrice && 
                                    candleOneMinAgo.TradePrice < candleOneMinAgo.OpeningPrice &&
@@ -187,7 +202,6 @@ public partial class TradePage : ContentPage
                 double averageLowerBand = (pastBollinger.lowerBand + pastKeltner.lower) / 2;
 
                 isTouchedBandLow = candleTwoMinAgo.LowPrice <= averageLowerBand &&
-                                   candleTwoMinAgo.TradePrice > candleTwoMinAgo.LowPrice &&
                                    candleOneMinAgo.TradePrice < candleOneMinAgo.OpeningPrice &&
                                    candleOneMinAgo.TradePrice > candleOneMinAgo.LowPrice;
 
@@ -248,6 +262,10 @@ public partial class TradePage : ContentPage
 
         marketBuyCci[market] = cci9;
 
+        double prevCandleOpenCloseGap = minCandles[1].OpeningPrice - minCandles[1].TradePrice;
+        bool isBlueCandle = minCandles[1].TradePrice < minCandles[1].OpeningPrice &&
+                            minCandles[0].TradePrice >= minCandles[0].OpeningPrice + prevCandleOpenCloseGap * 0.1 &&
+                            minCandles[0].TradePrice <= minCandles[0].OpeningPrice + prevCandleOpenCloseGap * 0.2;
         bool isCciCondition = cci9 > -130;
         bool isTradePriceCondition = avgPrice * (1 - executeAddPercent) > currPrice;
 
@@ -362,7 +380,7 @@ public partial class TradePage : ContentPage
             }
             else if (isBuyConditionTWO)
             {
-                return ExecuteBuyOrder("도지 캔들 이후 양봉"); // 매수
+                return ExecuteBuyOrder("상승 추세 BB 하단 터치 이후 양봉"); // 매수
             }
             else if (isBuyConditionTHREE)
             {
