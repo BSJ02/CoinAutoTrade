@@ -24,7 +24,7 @@ public partial class TradePage : ContentPage
         // ✅ 필수 조건
 
         // 1: CCI 일정 값
-        bool isCciCondition = cci9 > -120 && cci9 < 20;
+        bool isCciCondition = cci9 > -100 && cci9 < 20;
 
         // 2: RSI 일정 값
         bool isRsiCondition = rsi > 30 && rsi < 60;
@@ -97,7 +97,7 @@ public partial class TradePage : ContentPage
 
 
         // 0: 상승 추세 확인
-        int quarterCandleCount = 25;
+        int quarterCandleCount = 20;
 
         var recentQuarterCandles = minCandles.Take(quarterCandleCount);
         var oneQuartersAgoCandles = minCandles.Skip(quarterCandleCount).Take(quarterCandleCount);
@@ -107,11 +107,18 @@ public partial class TradePage : ContentPage
         double oneQuartersAgoLow = oneQuartersAgoCandles.Min(c => c.LowPrice);
         double twoQuartersAgoLow = twoQuartersAgoCandles.Min(c => c.LowPrice);
 
-        double averageQuarterLowGap = Math.Min(recentQuarterLow - oneQuartersAgoLow, oneQuartersAgoLow - twoQuartersAgoLow);
+        double recentQuarterHigh = recentQuarterCandles.Max(c => c.HighPrice);
+        double oneQuartersAgoHigh = oneQuartersAgoCandles.Max(c => c.HighPrice);
+        double twoQuartersAgoHigh = twoQuartersAgoCandles.Max(c => c.HighPrice);
 
-        bool isUptrend = minCandles[0].TradePrice > recentQuarterLow && recentQuarterLow > oneQuartersAgoLow && oneQuartersAgoLow > twoQuartersAgoLow;
+        double averageQuarterLowGap = Math.Max(recentQuarterLow - oneQuartersAgoLow, oneQuartersAgoLow - twoQuartersAgoLow);
+        double averageQuarterHighGap = Math.Max(recentQuarterHigh - oneQuartersAgoHigh, oneQuartersAgoHigh - twoQuartersAgoHigh);
 
-        if (recentQuarterLow - averageQuarterLowGap > minCandles[0].TradePrice)
+        bool isUptrend = minCandles[0].TradePrice > recentQuarterLow && recentQuarterLow > oneQuartersAgoLow && oneQuartersAgoLow > twoQuartersAgoLow &&
+                         recentQuarterHigh > oneQuartersAgoHigh && oneQuartersAgoHigh > twoQuartersAgoHigh;
+
+        if (minCandles[0].LowPrice < recentQuarterLow + averageQuarterLowGap ||
+            recentQuarterHigh > oneQuartersAgoHigh + averageQuarterHighGap * 1.5)
             return false;
 
         // 1: CCI 일정 값
@@ -121,19 +128,16 @@ public partial class TradePage : ContentPage
         bool isRsiCondition = rsi > 30 && rsi < 60;
 
         // 3: 음봉 및 밴드에 닿았는지 확인
-        var prevCandles = minCandles.Skip(2).ToList();
+        var prevCandles = minCandles.Skip(1).ToList();
         var prevBollingerBands = Calculate.BollingerBands(prevCandles);
         var prevKeltner = Calculate.KeltnerChannel(prevCandles);
 
         bool isBlueCandle = prevCandles[0].TradePrice < prevCandles[0].OpeningPrice &&
                             prevCandles[0].LowPrice <= (prevBollingerBands.lowerBand + prevKeltner.lower) / 2;
 
-        // 4: 이전 캔들 양봉 확인
-        bool isBullishCandle = minCandles[1].TradePrice > minCandles[1].OpeningPrice;
-
-        // 5: 오픈가로 매수
+        // 4: 오픈가로 매수
         bool isTradPriceCondition = minCandles[0].TradePrice <= minCandles[0].OpeningPrice &&
-                                    minCandles[0].TradePrice < Math.Min(bollingerBands.movingAverage, keltner.middle);
+                                    minCandles[0].TradePrice < Math.Max(bollingerBands.lowerBand, keltner.lower);
 
         // 디버그 메세지 추가
         string debugMessage = "";
@@ -143,7 +147,6 @@ public partial class TradePage : ContentPage
         if (isCciCondition) { debugMessage += "| CCI "; count++; }
         if (isRsiCondition) { debugMessage += "| RSI "; count++; }
         if (isUptrend) { debugMessage += "| UP "; count++; }
-        if (isBullishCandle) { debugMessage += "| BC "; count++; }
         if (isTradPriceCondition)
         {
             debugMessage += "| Price ";
