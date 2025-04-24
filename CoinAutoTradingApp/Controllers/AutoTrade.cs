@@ -26,18 +26,13 @@ public partial class TradePage : ContentPage
     private Dictionary<string, (double price, DateTime time, string side)> pendingBuyOrders;
     private Dictionary<string, (double price, DateTime time, string side)> pendingSellOrders;
 
+    private Dictionary<string, EntryCondition> entryCondition;
+
     private Dictionary<string, DateTime> waitBuyTime;
-
-    private Dictionary<string, double> marketBuyCci;
-    private Dictionary<string, bool> marketTouchedBandHigh;
-    private Dictionary<string, bool> marketTouchedBandMiddle;
-
-    private Dictionary<string, double> marketBuyCount;
-    private const int marketBuyCountLimit = 3;  // 추가 매수 최대 횟수
 
     private const double FeeRate = 0.0005;  // 수수료
     private const double PendingOrderTimeLimit = 20; // 미체결 주문 취소 기간
-    private const double MaxTradeKRW = 250000;   // 매매 시 최대 금액
+    private const double MaxTradeKRW = 1000000;   // 매매 시 최대 금액
 
     private string targetMarket = "";
     private bool isHaveMarket = false;
@@ -75,8 +70,8 @@ public partial class TradePage : ContentPage
                 targetMarket != market) // 해당 마켓만 매매
                 continue;
 
-            var minCandles = API.GetCandleMinutes(market, (CandleUnit)1, DateTime.UtcNow, 110)?.Cast<CandleMinute>().ToList();
-            if (minCandles == null || minCandles.Count < 110)
+            var minCandles = API.GetCandleMinutes(market, (CandleUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
+            if (minCandles == null || minCandles.Count < 200)
             {
                 AddDebugMessage($"⚠️ {market} 캔들 데이터 부족");
                 continue;
@@ -89,55 +84,30 @@ public partial class TradePage : ContentPage
             double prevPrice = minCandles[1].TradePrice;
             double currPrice = minCandles[0].TradePrice;
             double avgPrice = avgBuyPrice.TryGetValue(market, out double price) ? price : 0;
-
-            double[] ema9 = Calculate.EMAHistory(minCandles, 9).ToArray();
-            double[] ema20 = Calculate.EMAHistory(minCandles, 20).ToArray();
-            double[] ema50 = Calculate.EMAHistory(minCandles, 50).ToArray();
-            double[] ema100 = Calculate.EMAHistory(minCandles, 100).ToArray();
-
-            double cci9 = Calculate.CCI(minCandles, 9);
-            double cci14 = Calculate.CCI(minCandles, 14);
-
-            var dmi = Calculate.DMI(minCandles);
-            var bollingerBands = Calculate.BollingerBands(minCandles, 20);
-            var keltner = Calculate.KeltnerChannel(minCandles, 20);
-
-            double rsi = Calculate.RSI(minCandles);
-            double atr = Calculate.ATR(minCandles);
+            var ema50 = Calculate.EMAHistory(minCandles, 50)[0];
+            var ema200 = Calculate.EMAHistory(minCandles, 200)[0];
+            var vwma = Calculate.VWMA(minCandles, 100)[0];
+            var poc = Calculate.POC(minCandles, 1);
 
             // 미체결 주문 취소
             CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());
             CancelPendingOrder(pendingSellOrders, market, OrderSide.ask.ToString());
 
-            bool isBuyCondition = !pendingBuyOrders.ContainsKey(market);
+            bool isBuyCondition = !pendingBuyOrders.ContainsKey(market) && !isHaveMarket;
 
             // 매매
             var tradeType = EvaluateTradeConditions(
-                prevPrice, currPrice, avgPrice,
-                ema9, ema20, ema50, ema100,
-                cci9, cci14, atr, rsi, dmi, keltner, bollingerBands, minCandles,
+                currPrice, avgPrice,
+                ema50, ema200,
+                vwma, poc,
+                minCandles,
                 availableKRW > 5000 && isBuyCondition
             );
 
             /* ------------------------------- 매 수 -------------------------------*/
             if (TradeType.Buy.Equals(tradeType))
             {
-                if (isHaveMarket)
-                {
-                    marketBuyCount[market]++;
-                }
-                else
-                {
-                    marketBuyCount[market] = 1;
-                }
-                
                 double tradeKRW = availableKRW > MaxTradeKRW ? MaxTradeKRW : availableKRW;
-                if (marketBuyCount[market] > 1)
-                {
-                    double buyMultiplier = Math.Pow(2, marketBuyCount[market] - 2);
-                    tradeKRW = availableKRW > MaxTradeKRW * buyMultiplier ? MaxTradeKRW * buyMultiplier : availableKRW;
-                }
-
                 double buyQuantity = (tradeKRW * (1 - FeeRate)) / currPrice;
 
                 if (currPrice * buyQuantity > 5000 && isBuyCondition)
@@ -160,11 +130,6 @@ public partial class TradePage : ContentPage
                             avgBuyPrice[market] = currPrice;
                             prevAvgBuyPrice[market] = avgBuyPrice[market];
                         }
-
-                        marketBuyCci[market] = cci9;
-
-                        marketTouchedBandHigh[market] = false;
-                        marketTouchedBandMiddle[market] = false;
 
                         waitBuyTime[market] = DateTime.Now; // 급락 때 연속 매수 방지
 
@@ -196,12 +161,6 @@ public partial class TradePage : ContentPage
 
                         avgBuyPrice.Remove(market); // 평단가 제거
                         prevAvgBuyPrice.Remove(market);
-
-                        marketBuyCount.Remove(market);
-                        marketBuyCci.Remove(market);
-
-                        marketTouchedBandHigh.Remove(market);
-                        marketTouchedBandMiddle.Remove(market);
 
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
                     }
@@ -250,24 +209,6 @@ public partial class TradePage : ContentPage
                     else
                     {
                         avgBuyPrice[market] = prevAvgBuyPrice[market];
-                    }
-
-                    if (marketBuyCount.ContainsKey(market))
-                    {
-                        marketBuyCount[market]--;
-                    }
-                    else
-                    {
-                        marketBuyCount.Remove(market);
-                    }
-
-                    if (marketTouchedBandHigh.ContainsKey(market))
-                    {
-                        marketTouchedBandHigh.Remove(market);
-                    }
-                    if (marketTouchedBandMiddle.ContainsKey(market))
-                    {
-                        marketTouchedBandMiddle.Remove(market);
                     }
 
                     AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");

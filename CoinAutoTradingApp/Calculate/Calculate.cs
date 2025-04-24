@@ -169,20 +169,97 @@ namespace CoinAutoTradingApp.Utilities
         // EMA
         public static List<double> EMAHistory(List<CandleMinute> candles, int period)
         {
-            List<double> emaValues = new List<double>();
-
+            List<double> emaValues = new List<double>(new double[candles.Count]);
             decimal multiplier = 2m / (period + 1);
 
-            double sma = candles.Take(period).Average(c => c.TradePrice);
-            emaValues.Add(sma);
+            int startIndex = candles.Count - period;
+            if (startIndex < 0) return emaValues;
 
-            for (int i = period - 1; i >= 0; i--)
+            // SMA 계산 (가장 오래된 기간 기준)
+            double sma = candles.Skip(startIndex).Take(period).Average(c => c.TradePrice);
+            emaValues[startIndex] = sma;
+            double previousEma = sma;
+
+            // EMA 계산: 오래된 → 최근 방향
+            for (int i = startIndex - 1; i >= 0; i--)
             {
-                double ema = ((candles[i].TradePrice - emaValues.Last()) * (double)multiplier) + emaValues.Last();
-                emaValues.Add(ema);
+                double close = candles[i].TradePrice;
+                double ema = ((close - previousEma) * (double)multiplier) + previousEma;
+                emaValues[i] = ema;
+                previousEma = ema;
             }
 
             return emaValues;
+        }
+
+        // VWMA
+        public static List<double> VWMA(List<CandleMinute> candles, int period)
+        {
+            List<double> vwmaValues = new List<double>(new double[candles.Count]);
+
+            // 오래된 것부터 최신으로 (인덱스 증가 방향)
+            for (int i = candles.Count - period; i >= 0; i--)
+            {
+                double volumeSum = 0;
+                double weightedPriceSum = 0;
+
+                for (int j = i; j < i + period; j++)
+                {
+                    double price = candles[j].TradePrice;
+                    double volume = candles[j].CandleAccTradeVolume;
+
+                    weightedPriceSum += price * volume;
+                    volumeSum += volume;
+                }
+
+                if (volumeSum != 0)
+                    vwmaValues[i] = weightedPriceSum / volumeSum;
+            }
+
+            return vwmaValues;
+        }
+
+        public static double POC(List<CandleMinute> candles, double priceRange)
+        {
+            Dictionary<double, double> volumeAtPriceRange = new Dictionary<double, double>();
+
+            // 캔들의 가격 범위를 priceRange 단위로 나누어 거래량 집계
+            foreach (var candle in candles.Take(100).ToList())
+            {
+                double price = candle.TradePrice;
+                double volume = candle.CandleAccTradeVolume;
+
+                // 각 가격 구간에 맞춰서 거래량 집계
+                double lowerBound = Math.Floor(price / priceRange) * priceRange;
+                double upperBound = lowerBound + priceRange;
+
+                if (price >= lowerBound && price < upperBound)
+                {
+                    if (volumeAtPriceRange.ContainsKey(lowerBound))
+                    {
+                        volumeAtPriceRange[lowerBound] += volume;
+                    }
+                    else
+                    {
+                        volumeAtPriceRange[lowerBound] = volume;
+                    }
+                }
+            }
+
+            // 거래량이 가장 큰 가격대 찾기 (POC)
+            double poc = 0;
+            double maxVolume = 0;
+
+            foreach (var entry in volumeAtPriceRange)
+            {
+                if (entry.Value > maxVolume)
+                {
+                    maxVolume = entry.Value;
+                    poc = entry.Key;
+                }
+            }
+
+            return poc;
         }
 
 
@@ -234,6 +311,26 @@ namespace CoinAutoTradingApp.Utilities
             double keltnerLower = ema - atrMultiplier * atr;  // 하단 밴드
 
             return (keltnerUpper, ema, keltnerLower);
+        }
+
+
+        public static double Slope((int index, double price) recentCandle, (int index, double price) prevCandle)
+        {
+            if (recentCandle.index == prevCandle.index) return double.NaN;  // 분모 0 방지
+
+            double slope = (recentCandle.price - prevCandle.price) / (prevCandle.index - recentCandle.index); // 0이 최신 캔들이므로 분모 변경
+            return slope;
+        }
+
+        public static double Intercept(double slope, (int index, double price) candle)
+        {
+            double intercept = candle.price - slope * candle.index;
+            return intercept;
+        }
+
+        public static double Volume(CandleMinute candle)
+        {
+            return candle.CandleAccTradeVolume;
         }
     }
 }

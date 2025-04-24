@@ -56,22 +56,22 @@ public partial class TradePage : ContentPage
 
         foreach (var marketData in marketVolumes)
         {
-            var candles = API.GetCandleMinutes(marketData.Market, (CandleUnit)1, DateTime.UtcNow, 110)
+            var candles = API.GetCandleMinutes(marketData.Market, (CandleUnit)5, DateTime.UtcNow, 200)
                              ?.Cast<CandleMinute>()
                              .ToList();
 
-            if (candles != null && candles.Count >= 110 && !marketData.Market.Contains("BTC") && !marketData.Market.Contains("XRP"))
+            if (candles != null && candles.Count >= 200)
             {
                 validMarkets.Add(marketData.Market);
             }
 
-            if (validMarkets.Count == 8)
+            if (validMarkets.Count == 10)
                 break;
         }
 
         var selectedMarketsString = string.Join(", ", validMarkets);
         SetSelectedMarkets(selectedMarketsString); // SetSelectedMarkets 호출
 
-        AddDebugMessage($"✅ 거래대금 상위 8개 마켓이 자동 매매 대상에 설정되었습니다: {selectedMarketsString}");
+        AddDebugMessage($"✅ 거래대금 상위 {validMarkets.Count}개 마켓이 자동 매매 대상에 설정되었습니다: {selectedMarketsString}");
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using CoinAutoTradingApp.UpbitAPI;
+using CoinAutoTradingApp.Enum;
 
 namespace CoinAutoTradingApp;
 
@@ -32,13 +33,9 @@ public partial class TradePage : ContentPage
         pendingBuyOrders = new Dictionary<string, (double, DateTime, string)>();
         pendingSellOrders = new Dictionary<string, (double, DateTime, string)>();
 
+        entryCondition = new Dictionary<string, EntryCondition>();
+
         waitBuyTime = new Dictionary<string, DateTime>();
-
-        marketBuyCci = new Dictionary<string, double>();
-        marketTouchedBandHigh = new Dictionary<string, bool>();
-        marketTouchedBandMiddle = new Dictionary<string, bool>();
-
-        marketBuyCount = new Dictionary<string, double>();
 
         debugMessageResetTime = DateTime.Now;
         resetTimeLimit = 120;
@@ -75,7 +72,7 @@ public partial class TradePage : ContentPage
                     AddDebugMessage($"❌ 자동 매매 중 오류 발생: {ex.Message}");
                 }
 
-                await Task.Delay(300);
+                await Task.Delay(1000);
 
 
                 if ((DateTime.Now - debugMessageResetTime).TotalSeconds > resetTimeLimit)
