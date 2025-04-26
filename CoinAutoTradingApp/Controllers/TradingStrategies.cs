@@ -17,18 +17,21 @@ public partial class TradePage : ContentPage
                                   double vwma, double poc,
                                   List<CandleMinute> minCandles)
     {
-        if (isHaveMarket)
-            return false;
-
         string market = minCandles[0].Market;
 
-        bool isEMACondition = ema50 < poc * 1.001 &&
+        if (!isHaveMarket || !pendingBuyOrders.ContainsKey(market))
+            return false;
+
+
+        // 1: EMA 역배열
+        bool isEMACondition = poc < ema50 &&
                               ema50 < vwma &&
-                              poc < vwma &&
                               vwma < ema200;
 
-        bool isTradPriceCondition = minCandles[0].HighPrice > poc &&
-                                    minCandles[0].TradePrice <= poc;
+        // 2: 매수가 설정
+        bool isTradPriceCondition = minCandles[0].HighPrice >= poc &&
+                                    minCandles[0].TradePrice <= poc &&
+                                    minCandles[0].OpeningPrice < poc;
 
         if (isEMACondition && isTradPriceCondition)
             entryCondition[market] = EntryCondition.Ema200AboveEma50;
@@ -40,27 +43,25 @@ public partial class TradePage : ContentPage
                                   double vwma, double poc,
                                   List<CandleMinute> minCandles)
     {
-        if (isHaveMarket)
-            return false;
-
         string market = minCandles[0].Market;
 
-        // 1: 거래량 증가
-        bool isEMACondition = ema200 < vwma &&
-                              poc < vwma &&
+        if (!isHaveMarket || !pendingBuyOrders.ContainsKey(market))
+            return false;
+
+
+        // 1: EMA 정배열
+        bool isEMACondition = ema200 < ema50 &&
+                              ema200 < poc &&
+                              ema200 < vwma &&
+                              poc < ema50 &&
                               vwma < ema50;
 
         // 2: 매수가 설정
-        bool isTradPriceCondition = false;
-
-        if (ema200 < poc)
-        {
-            isTradPriceCondition = minCandles[0].TradePrice <= ema200;
-        }
-        else
-        {
-            isTradPriceCondition = minCandles[0].TradePrice <= poc;
-        }
+        bool isTradPriceCondition = minCandles[0].HighPrice >= poc &&
+                                    minCandles[0].OpeningPrice < poc &&
+                                    minCandles[0].TradePrice <= Math.Max(poc, vwma)  &&
+                                    minCandles[0].HighPrice >= vwma &&
+                                    minCandles[0].OpeningPrice < vwma;
 
         if (isEMACondition && isTradPriceCondition)
             entryCondition[market] = EntryCondition.Ema50AboveEma200;
@@ -69,21 +70,27 @@ public partial class TradePage : ContentPage
     }
 
     public bool ShouldTakeProfit(double currPrice, double avgPrice,
-                                 double ema50, double ema200, double vwma,
+                                 double ema50, double ema200, double vwma, double poc,
                                  List<CandleMinute> minCandles)
     {
+        string market = minCandles[0].Market;
         if (!isHaveMarket)
             return false;
 
-        string market = minCandles[0].Market;
-
         if (entryCondition[market] == EntryCondition.Ema200AboveEma50)
         {
-            return currPrice >= vwma;
+            if (poc > ema50)
+            {
+                return currPrice >= ema200 * 0.9995;
+            }
+            else
+            {
+                return currPrice >= vwma * 0.9995;
+            }
         }
         else if (entryCondition[market] == EntryCondition.Ema50AboveEma200)
         {
-            return ema50 <= ema200;
+            return ema50 < minCandles[0].OpeningPrice;
         }
 
         return false;
@@ -91,7 +98,7 @@ public partial class TradePage : ContentPage
 
     public bool ShouldStopLoss(double currPrice, double avgPrice,
                                List<CandleMinute> minCandles,
-                               double stopLoss = 0.015)
+                               double stopLoss = 0.01)
     {
         if (!isHaveMarket)
             return false;
@@ -108,7 +115,7 @@ public partial class TradePage : ContentPage
         bool isBuyConditionTwo = IsBuyConditionTwo(currPrice, ema50, ema200, vwma, poc, minCandles) && isKRWHeld;
 
         // 익절 (매도)
-        bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, ema50, ema200, vwma, minCandles);
+        bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, ema50, ema200, vwma, poc, minCandles);
         // 손절 (매도)
         bool isStopLoss = ShouldStopLoss(currPrice, avgPrice, minCandles);
         
@@ -136,11 +143,11 @@ public partial class TradePage : ContentPage
         {
             if (isBuyConditionOne)
             {
-                return ExecuteBuyOrder("지지층 횡보"); // 매수
+                return ExecuteBuyOrder("ema 역배열"); // 매수
             }
             else if (isBuyConditionTwo)
             {
-                return ExecuteBuyOrder("지지층 돌파"); // 매수
+                return ExecuteBuyOrder("ema 정배열"); // 매수
             }
         }
 

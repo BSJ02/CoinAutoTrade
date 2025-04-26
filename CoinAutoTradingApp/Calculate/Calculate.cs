@@ -219,12 +219,12 @@ namespace CoinAutoTradingApp.Utilities
             return vwmaValues;
         }
 
-        public static double POC(List<CandleMinute> candles, double priceRange)
+        public static double POC(List<CandleMinute> candles, double priceRange, int period)
         {
             Dictionary<double, double> volumeAtPriceRange = new Dictionary<double, double>();
 
             // 캔들의 가격 범위를 priceRange 단위로 나누어 거래량 집계
-            foreach (var candle in candles.Take(100).ToList())
+            foreach (var candle in candles.Take(period).ToList())
             {
                 double price = candle.TradePrice;
                 double volume = candle.CandleAccTradeVolume;

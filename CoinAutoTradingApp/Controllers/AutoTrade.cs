@@ -27,11 +27,12 @@ public partial class TradePage : ContentPage
     private Dictionary<string, (double price, DateTime time, string side)> pendingSellOrders;
 
     private Dictionary<string, EntryCondition> entryCondition;
+    private Dictionary<string, double> trailingStopPrice;
 
     private Dictionary<string, DateTime> waitBuyTime;
 
-    private const double FeeRate = 0.0005;  // 수수료
-    private const double PendingOrderTimeLimit = 20; // 미체결 주문 취소 기간
+    private const double FeeRate = 0.005;  // 수수료
+    private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
     private const double MaxTradeKRW = 1000000;   // 매매 시 최대 금액
 
     private string targetMarket = "";
@@ -84,10 +85,10 @@ public partial class TradePage : ContentPage
             double prevPrice = minCandles[1].TradePrice;
             double currPrice = minCandles[0].TradePrice;
             double avgPrice = avgBuyPrice.TryGetValue(market, out double price) ? price : 0;
-            var ema50 = Calculate.EMAHistory(minCandles, 50)[0];
-            var ema200 = Calculate.EMAHistory(minCandles, 200)[0];
+            var ema50 = Calculate.EMAHistory(minCandles, 50).ToArray()[0];
+            var ema200 = Calculate.EMAHistory(minCandles, 200).ToArray()[0];
             var vwma = Calculate.VWMA(minCandles, 100)[0];
-            var poc = Calculate.POC(minCandles, 1);
+            var poc = Calculate.POC(minCandles, 1, 24);
 
             // 미체결 주문 취소
             CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());

@@ -34,6 +34,7 @@ public partial class TradePage : ContentPage
         pendingSellOrders = new Dictionary<string, (double, DateTime, string)>();
 
         entryCondition = new Dictionary<string, EntryCondition>();
+        trailingStopPrice = new Dictionary<string, double>();
 
         waitBuyTime = new Dictionary<string, DateTime>();
 
