@@ -8,15 +8,15 @@ namespace CoinAutoTradingApp.Enum
 {
     public enum TradeType
     {
+        None,
         Buy,
-        Sell,
-        None
+        Sell
     }
 
     public enum EntryCondition
     {
+        None,
         Ema50AboveEma200,  // EMA50 > EMA200: 단기 추세가 장기 추세를 돌파
-        Ema200AboveEma50,  // EMA200 > EMA50: 단기 추세가 장기 추세를 돌파
-        None
+        Ema200AboveEma50  // EMA200 > EMA50: 단기 추세가 장기 추세를 돌파
     }
 }

@@ -14,34 +14,34 @@ namespace CoinAutoTradingApp.Utilities
         // RSI
         public static double RSI(List<CandleMinute> candles, int period = 14, int count = 14)
         {
-            double totalGain = 0;
-            double totalLoss = 0;
+            decimal totalGain = 0;
+            decimal totalLoss = 0;
 
             for (int i = period + count; i > period - 2; i--)
             {
-                double prevClosePrice = candles[i + 1].TradePrice;
-                double currClosePrice = candles[i].TradePrice;
+                decimal prevClosePrice = candles[i + 1].TradePrice;
+                decimal currClosePrice = candles[i].TradePrice;
 
                 totalGain += Math.Max(0, currClosePrice - prevClosePrice);
                 totalLoss += Math.Max(0, prevClosePrice - currClosePrice);
             }
 
-            double avgGain = totalGain / count;
-            double avgLoss = totalLoss / count;
+            decimal avgGain = totalGain / count;
+            decimal avgLoss = totalLoss / count;
 
             for (int i = period - 2; i >= 0; i--)
             {
-                double prevClosePrice = candles[i + 1].TradePrice;
-                double currClosePrice = candles[i].TradePrice;
+                decimal prevClosePrice = candles[i + 1].TradePrice;
+                decimal currClosePrice = candles[i].TradePrice;
 
-                double gain = Math.Max(0, currClosePrice - prevClosePrice);
-                double loss = Math.Max(0, prevClosePrice - currClosePrice);
+                decimal gain = Math.Max(0, currClosePrice - prevClosePrice);
+                decimal loss = Math.Max(0, prevClosePrice - currClosePrice);
 
                 avgGain = (avgGain * (period - 1) + gain) / period;
                 avgLoss = (avgLoss * (period - 1) + loss) / period;
             }
 
-            double rs = avgGain / avgLoss;
+            double rs = (double)(avgGain / avgLoss);
             double rsi = 100 - (100 / (1 + rs));
 
             return rsi;
@@ -49,31 +49,31 @@ namespace CoinAutoTradingApp.Utilities
     
 
         // ATR
-        public static double ATR(List<CandleMinute> candles, int period = 14, int count = 14)
+        public static decimal ATR(List<CandleMinute> candles, int period = 14, int count = 14)
         {
             if (candles.Count < period)
                 return 0;
 
-            double trSum = 0;
+            decimal trSum = 0;
             for (int i = period + count; i > period - 2; i--)
             {
-                double high = candles[i].HighPrice;
-                double low = candles[i].LowPrice;
-                double prevClose = candles[i + 1].TradePrice;
+                decimal high = candles[i].HighPrice;
+                decimal low = candles[i].LowPrice;
+                decimal prevClose = candles[i + 1].TradePrice;
 
-                double tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
+                decimal tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
                 trSum += tr;
             }
 
-            double atr = trSum / period;
+            decimal atr = (trSum / period);
 
             for (int i = period - 2; i >= 0; i--)
             {
-                double high = candles[i].HighPrice;
-                double low = candles[i].LowPrice;
-                double prevClose = candles[i + 1].TradePrice;
+                decimal high = candles[i].HighPrice;
+                decimal low = candles[i].LowPrice;
+                decimal prevClose = candles[i + 1].TradePrice;
 
-                double tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
+                decimal tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
 
                 atr = (atr * (period - 1) + tr) / period;
             }
@@ -82,109 +82,25 @@ namespace CoinAutoTradingApp.Utilities
         }
 
 
-        // DMI
-        public static (double pdi, double mdi, double adx) DMI(List<CandleMinute> candles, int period = 14, int count = 14)
-        {
-            List<double> trList = new();
-            List<double> plusDMList = new();
-            List<double> minusDMList = new();
-            List<double> dxList = new();
-            (double pdi, double mdi, double adx) results = (0, 0, 0);
-
-            // Step 1: Calculate TR, +DM, -DM
-            for (int i = 0; i < period + count; i++)
-            {
-                var curr = candles[i];
-                var prev = candles[i + 1];
-
-                double highDiff = curr.HighPrice - prev.HighPrice;
-                double lowDiff = prev.LowPrice - curr.LowPrice;
-
-                double plusDM = (highDiff > lowDiff && highDiff > 0) ? highDiff : 0;
-                double minusDM = (lowDiff > highDiff && lowDiff > 0) ? lowDiff : 0;
-
-                double tr = Math.Max(curr.HighPrice - curr.LowPrice,
-                            Math.Max(Math.Abs(curr.HighPrice - prev.TradePrice),
-                                     Math.Abs(curr.LowPrice - prev.TradePrice)));
-
-                plusDMList.Add(plusDM);
-                minusDMList.Add(minusDM);
-                trList.Add(tr);
-            }
-
-            // Step 2: 초기 Sum 계산
-            double sumTR = trList.Take(count).Sum();
-            double sumPlusDM = plusDMList.Take(count).Sum();
-            double sumMinusDM = minusDMList.Take(count).Sum();
-
-            double plusDI = 100 * (sumPlusDM / sumTR);
-            double minusDI = 100 * (sumMinusDM / sumTR);
-            double dx = 100 * (Math.Abs(plusDI - minusDI) / (plusDI + minusDI));
-            dxList.Add(dx);
-
-            double finalPDI = 0, finalMDI = 0;
-
-            // Step 2.5: 초기화
-            sumTR = trList[period - 1];
-            sumPlusDM = plusDMList[period - 1];
-            sumMinusDM = minusDMList[period - 1];
-
-            // Step 3: 이후 구간
-            for (int i = period - 2; i >= 0; i--)
-            {
-                sumTR = sumTR - (sumTR / period) + trList[i];
-                sumPlusDM = sumPlusDM - (sumPlusDM / period) + plusDMList[i];
-                sumMinusDM = sumMinusDM - (sumMinusDM / period) + minusDMList[i];
-
-                plusDI = (sumTR != 0) ? 100 * (sumPlusDM / sumTR) : 0;
-                minusDI = (sumTR != 0) ? 100 * (sumMinusDM / sumTR) : 0;
-
-                double diSum = plusDI + minusDI;
-
-                if (diSum != 0)
-                {
-                    dx = 100 * (Math.Abs(plusDI - minusDI) / (plusDI + minusDI));
-                    dxList.Add(dx);
-
-                    double adx = dxList.Average();
-
-                    results.pdi = Math.Round(plusDI, 2);
-                    results.mdi = Math.Round(minusDI, 2);
-                    results.adx = Math.Round(adx, 2);
-                }
-                else
-                {
-                    dxList.Add(0);
-
-                    results.pdi = 0;
-                    results.mdi = 0;
-                    results.adx = 0;
-                }
-            }
-
-            return results;
-        }
-
-
         // EMA
-        public static List<double> EMAHistory(List<CandleMinute> candles, int period)
+        public static List<decimal> EMAHistory(List<CandleMinute> candles, int period)
         {
-            List<double> emaValues = new List<double>(new double[candles.Count]);
+            List<decimal> emaValues = new List<decimal>(new decimal[candles.Count]);
             decimal multiplier = 2m / (period + 1);
 
             int startIndex = candles.Count - period;
             if (startIndex < 0) return emaValues;
 
             // SMA 계산 (가장 오래된 기간 기준)
-            double sma = candles.Skip(startIndex).Take(period).Average(c => c.TradePrice);
+            decimal sma = candles.Skip(startIndex).Take(candles.Count - startIndex).Average(c => c.TradePrice);
             emaValues[startIndex] = sma;
-            double previousEma = sma;
+            decimal previousEma = sma;
 
             // EMA 계산: 오래된 → 최근 방향
             for (int i = startIndex - 1; i >= 0; i--)
             {
-                double close = candles[i].TradePrice;
-                double ema = ((close - previousEma) * (double)multiplier) + previousEma;
+                decimal close = candles[i].TradePrice;
+                decimal ema = ((close - previousEma) * multiplier) + previousEma;
                 emaValues[i] = ema;
                 previousEma = ema;
             }
@@ -193,20 +109,20 @@ namespace CoinAutoTradingApp.Utilities
         }
 
         // VWMA
-        public static List<double> VWMA(List<CandleMinute> candles, int period)
+        public static List<decimal> VWMA(List<CandleMinute> candles, int period)
         {
-            List<double> vwmaValues = new List<double>(new double[candles.Count]);
+            List<decimal> vwmaValues = new List<decimal>(new decimal[candles.Count]);
 
             // 오래된 것부터 최신으로 (인덱스 증가 방향)
             for (int i = candles.Count - period; i >= 0; i--)
             {
-                double volumeSum = 0;
-                double weightedPriceSum = 0;
+                decimal volumeSum = 0;
+                decimal weightedPriceSum = 0;
 
                 for (int j = i; j < i + period; j++)
                 {
-                    double price = candles[j].TradePrice;
-                    double volume = candles[j].CandleAccTradeVolume;
+                    decimal price = candles[j].TradePrice;
+                    decimal volume = candles[j].CandleAccTradeVolume;
 
                     weightedPriceSum += price * volume;
                     volumeSum += volume;
@@ -219,19 +135,30 @@ namespace CoinAutoTradingApp.Utilities
             return vwmaValues;
         }
 
-        public static double POC(List<CandleMinute> candles, double priceRange, int period)
+        public static decimal POC(List<CandleMinute> candles, int period)
         {
-            Dictionary<double, double> volumeAtPriceRange = new Dictionary<double, double>();
+            decimal currentPrice = candles[0].TradePrice;
+
+            // ATR을 계산하여 변동성을 측정
+            decimal atr = Calculate.ATR(candles, period); // ATR 계산 함수 호출
+
+            // 변동성을 바탕으로 priceRange 설정 (ATR에 비례)
+            decimal priceRange = atr * 0.1m;  // ATR의 10% 정도를 priceRange로 설정
+
+            // priceRange가 너무 작으면 최소값 설정
+            priceRange = Math.Max(priceRange, currentPrice * 0.001m);  // 최소 0.1%로 설정
+
+            Dictionary<decimal, decimal> volumeAtPriceRange = new Dictionary<decimal, decimal>();
 
             // 캔들의 가격 범위를 priceRange 단위로 나누어 거래량 집계
             foreach (var candle in candles.Take(period).ToList())
             {
-                double price = candle.TradePrice;
-                double volume = candle.CandleAccTradeVolume;
+                decimal price = candle.TradePrice;
+                decimal volume = candle.CandleAccTradeVolume;
 
                 // 각 가격 구간에 맞춰서 거래량 집계
-                double lowerBound = Math.Floor(price / priceRange) * priceRange;
-                double upperBound = lowerBound + priceRange;
+                decimal lowerBound = Math.Floor(price / priceRange) * priceRange;
+                decimal upperBound = lowerBound + priceRange;
 
                 if (price >= lowerBound && price < upperBound)
                 {
@@ -247,8 +174,8 @@ namespace CoinAutoTradingApp.Utilities
             }
 
             // 거래량이 가장 큰 가격대 찾기 (POC)
-            double poc = 0;
-            double maxVolume = 0;
+            decimal poc = 0;
+            decimal maxVolume = 0;
 
             foreach (var entry in volumeAtPriceRange)
             {
@@ -263,52 +190,35 @@ namespace CoinAutoTradingApp.Utilities
         }
 
 
-        // BollingerBand
-        public static (double upperBand, double lowerBand, double movingAverage) BollingerBands(List<CandleMinute> candles, int period = 20, int multiplier = 2)
-        {
-            var recentCandles = candles.Take(period).ToList();
-
-            double movingAverage = recentCandles.Average(c => c.TradePrice);
-
-            double sumOfSquares = recentCandles.Sum(c => Math.Pow(c.TradePrice - movingAverage, 2));
-            double standardDeviation = Math.Sqrt(sumOfSquares / (period - 1));
-
-            double upperBand = movingAverage + multiplier * standardDeviation;
-            double lowerBand = movingAverage - multiplier * standardDeviation;
-
-            return (upperBand, lowerBand, movingAverage);
-        }
-
-
         // CCI
         public static double CCI(List<CandleMinute> candles, int period = 14)
         {
             var recentCandles = candles.Take(period).ToList();
             var latestCandle = recentCandles[0];
 
-            double typicalPrice = (latestCandle.HighPrice + latestCandle.LowPrice + latestCandle.TradePrice) / 3;
+            decimal typicalPrice = (latestCandle.HighPrice + latestCandle.LowPrice + latestCandle.TradePrice) / 3;
 
-            double sma = recentCandles.Average(c => (c.HighPrice + c.LowPrice + c.TradePrice) / 3);
+            decimal sma = recentCandles.Average(c => (c.HighPrice + c.LowPrice + c.TradePrice) / 3);
 
-            double meanDeviation = recentCandles.Average(c => Math.Abs(((c.HighPrice + c.LowPrice + c.TradePrice) / 3) - sma));
+            decimal meanDeviation = recentCandles.Average(c => Math.Abs(((c.HighPrice + c.LowPrice + c.TradePrice) / 3) - sma));
 
             if (meanDeviation == 0)
                 return 0;
 
-            return (typicalPrice - sma) / (0.015 * meanDeviation);
+            return (double)(typicalPrice - sma) / (0.015 * (double)meanDeviation);
         }
 
 
         // Keltner Channel
-        public static (double upper, double middle, double lower) KeltnerChannel(List<CandleMinute> candles, int period = 20, double atrMultiplier = 1)
+        public static (decimal upper, decimal middle, decimal lower) KeltnerChannel(List<CandleMinute> candles, int period = 20, decimal atrMultiplier = 1)
         {
             if (candles.Count < period) return (0, 0, 0); // 데이터 부족 시 0 반환
 
-            double ema = EMAHistory(candles, period).Last();  // 중앙선 (Middle Line)
-            double atr = ATR(candles, period);
+            decimal ema = EMAHistory(candles, period).Last();  // 중앙선 (Middle Line)
+            decimal atr = ATR(candles, period);
 
-            double keltnerUpper = ema + atrMultiplier * atr;  // 상단 밴드
-            double keltnerLower = ema - atrMultiplier * atr;  // 하단 밴드
+            decimal keltnerUpper = ema + atrMultiplier * atr;  // 상단 밴드
+            decimal keltnerLower = ema - atrMultiplier * atr;  // 하단 밴드
 
             return (keltnerUpper, ema, keltnerLower);
         }
@@ -328,7 +238,7 @@ namespace CoinAutoTradingApp.Utilities
             return intercept;
         }
 
-        public static double Volume(CandleMinute candle)
+        public static decimal Volume(CandleMinute candle)
         {
             return candle.CandleAccTradeVolume;
         }

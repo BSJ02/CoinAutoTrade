@@ -13,25 +13,26 @@ namespace CoinAutoTradingApp;
 public partial class TradePage : ContentPage
 {
     // 매수 조건
-    public bool IsBuyConditionOne(double currPrice, double ema50, double ema200,
-                                  double vwma, double poc,
+    public bool IsBuyConditionOne(decimal currPrice, decimal ema50, decimal ema200,
+                                  decimal vwma, decimal poc,
                                   List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
 
-        if (!isHaveMarket || !pendingBuyOrders.ContainsKey(market))
+        if (!isHaveMarket || pendingBuyOrders.ContainsKey(market))
             return false;
 
 
         // 1: EMA 역배열
-        bool isEMACondition = poc < ema50 &&
+        bool isEMACondition = ema50 < poc * 1.001m &&
                               ema50 < vwma &&
+                              poc < vwma &&
                               vwma < ema200;
 
         // 2: 매수가 설정
-        bool isTradPriceCondition = minCandles[0].HighPrice >= poc &&
-                                    minCandles[0].TradePrice <= poc &&
-                                    minCandles[0].OpeningPrice < poc;
+        bool isTradPriceCondition = minCandles[0].HighPrice > poc &&
+                                    minCandles[0].TradePrice > minCandles[0].OpeningPrice &&
+                                    minCandles[0].TradePrice <= poc * 1.0005m;
 
         if (isEMACondition && isTradPriceCondition)
             entryCondition[market] = EntryCondition.Ema200AboveEma50;
@@ -39,54 +40,50 @@ public partial class TradePage : ContentPage
         return isEMACondition && isTradPriceCondition;
     }
 
-    public bool IsBuyConditionTwo(double currPrice, double ema50, double ema200,
-                                  double vwma, double poc,
+    public bool IsBuyConditionTwo(decimal currPrice, decimal ema50, decimal ema200,
+                                  decimal vwma, decimal poc,
                                   List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
 
-        if (!isHaveMarket || !pendingBuyOrders.ContainsKey(market))
+        if (!isHaveMarket || pendingBuyOrders.ContainsKey(market))
             return false;
 
 
         // 1: EMA 정배열
-        bool isEMACondition = ema200 < ema50 &&
-                              ema200 < poc &&
-                              ema200 < vwma &&
-                              poc < ema50 &&
-                              vwma < ema50;
+        bool isEMACondition = poc < ema50 &&
+                              vwma < ema50 &&
+                              minCandles[1].TradePrice < Math.Min(ema50, Math.Min(poc, vwma));
 
         // 2: 매수가 설정
-        bool isTradPriceCondition = minCandles[0].HighPrice >= poc &&
-                                    minCandles[0].OpeningPrice < poc &&
-                                    minCandles[0].TradePrice <= Math.Max(poc, vwma)  &&
-                                    minCandles[0].HighPrice >= vwma &&
-                                    minCandles[0].OpeningPrice < vwma;
+        bool isTradPriceCondition = minCandles[0].OpeningPrice == minCandles[1].TradePrice &&
+                                    minCandles[0].OpeningPrice == minCandles[0].LowPrice &&
+                                    minCandles[0].TradePrice == minCandles[0].OpeningPrice;
 
-        if (isEMACondition && isTradPriceCondition)
+        // 3: 거래량 확인
+        bool isVolumeCondition = minCandles[1].TradePrice > minCandles[1].OpeningPrice &&
+                                 minCandles[1].CandleAccTradeVolume > minCandles.Skip(1).Take(6).Average(c => c.CandleAccTradeVolume) * 7;
+
+        if (isEMACondition && isTradPriceCondition && isVolumeCondition)
             entryCondition[market] = EntryCondition.Ema50AboveEma200;
 
-        return isEMACondition && isTradPriceCondition;
+        return isEMACondition && isTradPriceCondition && isVolumeCondition;
     }
 
-    public bool ShouldTakeProfit(double currPrice, double avgPrice,
-                                 double ema50, double ema200, double vwma, double poc,
+    public bool ShouldTakeProfit(decimal currPrice, decimal avgPrice,
+                                 decimal ema50, decimal ema200, decimal vwma, decimal poc,
                                  List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
-        if (!isHaveMarket)
+        if (!isHaveMarket || !entryCondition.ContainsKey(market))
+            return false;
+
+        if (currPrice <= avgPrice * (1 + FeeRate * 2))
             return false;
 
         if (entryCondition[market] == EntryCondition.Ema200AboveEma50)
         {
-            if (poc > ema50)
-            {
-                return currPrice >= ema200 * 0.9995;
-            }
-            else
-            {
-                return currPrice >= vwma * 0.9995;
-            }
+            return currPrice >= vwma * 0.9999m;
         }
         else if (entryCondition[market] == EntryCondition.Ema50AboveEma200)
         {
@@ -96,18 +93,19 @@ public partial class TradePage : ContentPage
         return false;
     }
 
-    public bool ShouldStopLoss(double currPrice, double avgPrice,
+    public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,
                                List<CandleMinute> minCandles,
-                               double stopLoss = 0.01)
+                               decimal stopLoss = 0.01m)
     {
-        if (!isHaveMarket)
+        string market = minCandles[0].Market;
+        if (!isHaveMarket || !entryCondition.ContainsKey(market))
             return false;
 
         return currPrice <= avgPrice * (1 - stopLoss);
     }
 
-    public TradeType EvaluateTradeConditions(double currPrice, double avgPrice, 
-                                             double ema50, double ema200, double vwma, double poc,
+    public TradeType EvaluateTradeConditions(decimal currPrice, decimal avgPrice,
+                                             decimal ema50, decimal ema200, decimal vwma, decimal poc,
                                              List<CandleMinute> minCandles, bool isKRWHeld)
     {
         // (매수)

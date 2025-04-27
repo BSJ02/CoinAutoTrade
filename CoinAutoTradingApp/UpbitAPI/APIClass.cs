@@ -36,6 +36,23 @@ namespace CoinAutoTradingApp.UpbitAPI
             }
         }
 
+        public Account GetAccount(string market)
+        {
+            // 자산 - 전체 계좌 조회
+            var accounts = GetAccount();
+
+            if (market.Contains('-'))
+                market = market.Split('-')[1];
+
+            foreach (var account in accounts)
+            {
+                if (account.Currency == market)
+                    return account;
+            }
+
+            return null;
+        }
+
         // AvailableKRW = 사용 가능 KRW, totalKRW = 주문 들어간 KRW 포함 모든 KRW
         public (double availableKRW, double totalKRW) GetKRW()
         {
@@ -71,7 +88,7 @@ namespace CoinAutoTradingApp.UpbitAPI
             string currMarket = market.Split('-')[1];
 
             // ✅ KRW 계좌 정보만 필터링
-            var krwAccount = accounts.FirstOrDefault(a => a.Currency == currMarket && a.Balance * a.AvgBuyPrice > 5000);
+            var krwAccount = accounts.FirstOrDefault(a => a.Currency == currMarket && a.Balance * (double)a.AvgBuyPrice > 5000);
             if (krwAccount == null)
             {
                 Debug.WriteLine($"❌ {market} 계좌 보유하지 않음.");
@@ -203,7 +220,7 @@ namespace CoinAutoTradingApp.UpbitAPI
             }
         }
 
-        public MakeOrderLimitBuy MakeOrderLimitBuy(string market, double buyPrice, double buyQuantity)
+        public MakeOrderLimitBuy MakeOrderLimitBuy(string market, decimal buyPrice, decimal buyQuantity)
         {
             // ✅ 지정가 매수 주문
             Dictionary<string, string> parameters = new Dictionary<string, string>();

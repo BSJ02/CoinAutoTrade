@@ -27,14 +27,11 @@ public partial class TradePage : ContentPage
         ChatMessages = new ObservableCollection<ChatMessage>();
         DebugMessages = new ObservableCollection<ChatMessage>();
 
-        avgBuyPrice = new Dictionary<string, double>();
-        prevAvgBuyPrice = new Dictionary<string, double>();
-
-        pendingBuyOrders = new Dictionary<string, (double, DateTime, string)>();
-        pendingSellOrders = new Dictionary<string, (double, DateTime, string)>();
+        pendingBuyOrders = new Dictionary<string, (decimal, DateTime, string)>();
+        pendingSellOrders = new Dictionary<string, (decimal, DateTime, string)>();
 
         entryCondition = new Dictionary<string, EntryCondition>();
-        trailingStopPrice = new Dictionary<string, double>();
+        trailingStopPrice = new Dictionary<string, decimal>();
 
         waitBuyTime = new Dictionary<string, DateTime>();
 
