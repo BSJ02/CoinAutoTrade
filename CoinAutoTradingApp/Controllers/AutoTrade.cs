@@ -34,7 +34,7 @@ public partial class TradePage : ContentPage
 
     private decimal stopLossPrice = 0;
 
-    private const decimal FeeRate = 0.005m;  // 수수료
+    private const decimal FeeRate = 0.0005m;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
     private const double MaxTradeKRW = 1000000;   // 매매 시 최대 금액
 
@@ -127,7 +127,7 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        stopLossPrice = bollingerBand.LowerBand * 0.997m;
+                        stopLossPrice = bollingerBand.LowerBand * 0.995m;
 
                         targetMarket = market;
 

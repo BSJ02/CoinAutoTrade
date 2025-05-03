@@ -26,15 +26,14 @@ public partial class TradePage : ContentPage
 
 
         // 1: EMA 우상향 확인
-        bool isEMACondition = Calculate.IsEmaTrendingUp(ema60) && Calculate.IsEmaTrendingUp(ema120) &&
-                              ema60[0] > ema120[0];
+        /*bool isEMACondition = Calculate.IsEmaTrendingUp(ema60) && Calculate.IsEmaTrendingUp(ema120) &&
+                              ema60[0] > ema120[0];*/
 
 
         // 2: 유동성 확인
-        decimal bandLowMiddleAverage = (bollingerBand.LowerBand + bollingerBand.Basis) / 2;
-        decimal bandMiddleUpperAverage = (bollingerBand.Basis + bollingerBand.UpperBand) / 2;
-
-        bool isBandGapCondition = (bandMiddleUpperAverage - bandLowMiddleAverage) / bandMiddleUpperAverage > 0.003m;
+        decimal bandLowerUpperGapPercent = (bollingerBand.UpperBand - bollingerBand.LowerBand) / bollingerBand.UpperBand;
+        bool isBandGapCondition = bandLowerUpperGapPercent <= 0.04m &&
+                                  bandLowerUpperGapPercent >= 0.01m;
 
 
         // 3: 로우 밴드 안 뚫었는지 확인
@@ -56,12 +55,14 @@ public partial class TradePage : ContentPage
 
 
         // 4: 매수가 설정
-        bool isTradePriceCondition = minCandles[0].TradePrice < bandLowMiddleAverage &&
-                                     minCandles[0].TradePrice >= minCandles[0].OpeningPrice &&
+        decimal bandLowMiddleGap = bollingerBand.Basis - bollingerBand.LowerBand;
+
+        bool isTradePriceCondition = minCandles[0].TradePrice < bollingerBand.LowerBand + bandLowMiddleGap * 0.4m &&
+                                     minCandles[0].TradePrice > minCandles[0].OpeningPrice &&
                                      minCandles[0].OpeningPrice >= minCandles[1].TradePrice;
 
 
-        return isEMACondition && isBandGapCondition && isBandCondition && isTradePriceCondition;
+        return /*isEMACondition &&*/ isBandGapCondition && isBandCondition && isTradePriceCondition;
     }
 
     public bool ShouldTakeProfit(decimal currPrice, decimal avgPrice,
@@ -74,15 +75,14 @@ public partial class TradePage : ContentPage
 
         trailingStopPrice[market] = trailingStopPrice.ContainsKey(market) ? Math.Max(currPrice, trailingStopPrice[market]) : currPrice;
 
-        if (currPrice < avgPrice * (1 + FeeRate * 2))
+        if (currPrice < avgPrice * (1 + FeeRate * 3))
             return false;
 
-        return currPrice < trailingStopPrice[market] * 0.999m;
+        return currPrice < trailingStopPrice[market] * 0.998m;
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,
-                               List<CandleMinute> minCandles,
-                               decimal stopLoss = 0.005m)
+                               List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
         if (!isHaveMarket)
@@ -128,7 +128,7 @@ public partial class TradePage : ContentPage
         {
             if (isBuyConditionOne)
             {
-                return ExecuteBuyOrder("돌파 매수"); // 매수
+                return ExecuteBuyOrder("BB 매수"); // 매수
             }
         }
 
