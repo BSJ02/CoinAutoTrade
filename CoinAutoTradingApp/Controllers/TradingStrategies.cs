@@ -25,9 +25,13 @@ public partial class TradePage : ContentPage
             return false;
 
 
-        // 1: EMA 우상향 확인
-        /*bool isEMACondition = Calculate.IsEmaTrendingUp(ema60) && Calculate.IsEmaTrendingUp(ema120) &&
-                              ema60[0] > ema120[0];*/
+        // 1: 음봉일 때 거래량 상승
+        bool isVolumeCondition = minCandles[0].OpeningPrice > minCandles[0].TradePrice &&
+                                 minCandles.Skip(1).Take(2).Average(c => c.CandleAccTradeVolume) * 1.25m < minCandles[0].CandleAccTradeVolume;
+        if (isVolumeCondition)
+        {
+            return false;
+        }
 
 
         // 2: 유동성 확인
@@ -74,10 +78,10 @@ public partial class TradePage : ContentPage
 
         trailingStopPrice[market] = trailingStopPrice.ContainsKey(market) ? Math.Max(currPrice, trailingStopPrice[market]) : currPrice;
 
-        if (currPrice <= avgPrice * (1 + FeeRate * 2))
+        if (currPrice < avgPrice * (1 + FeeRate * 4))
             return false;
 
-        return currPrice <= trailingStopPrice[market] * 0.999m;
+        return currPrice <= trailingStopPrice[market] * 0.9995m;
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,

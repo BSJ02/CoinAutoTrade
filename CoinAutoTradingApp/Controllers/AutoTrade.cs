@@ -122,7 +122,7 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        stopLossPrice = bollingerBand.LowerBand;
+                        stopLossPrice = bollingerBand.LowerBand * 0.999m;
 
                         totalBuyTrades++;
 
@@ -154,7 +154,7 @@ public partial class TradePage : ContentPage
 
                         totalSellTrades++;
 
-                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100:N3}%");
+                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {TradeKRW * ((currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100):N3}%");
 
                         trailingStopPrice.Remove(market);
                         entryCondition.Remove(market);

@@ -8,7 +8,7 @@ namespace CoinAutoTradingApp;
 
 public partial class TradePage : ContentPage
 {
-    private double totalProfit;
+    private decimal startKRW;
 
     private DateTime tradStartTime;
     private DateTime tradEndTime;
@@ -53,7 +53,7 @@ public partial class TradePage : ContentPage
         tradeLoopTokenSource = new CancellationTokenSource();
         CancellationToken token = tradeLoopTokenSource.Token;
 
-        totalProfit = API.GetKRW().totalKRW;
+        startKRW = (decimal)API.GetKRW().totalKRW;
         tradStartTime = DateTime.Now;
 
         Task.Run(async () =>
@@ -93,7 +93,7 @@ public partial class TradePage : ContentPage
             tradeLoopTokenSource = null;
             AddChatMessage("🛑 자동 매매 중지됨.");
             AddChatMessage($"매수: {totalBuyTrades}회, 매도: {totalSellTrades}회");
-            AddChatMessage($"시간: {(int)(tradEndTime - tradStartTime).TotalMinutes}분 : {API.GetKRW().totalKRW - totalProfit:C2}");
+            AddChatMessage($"시간: {(int)(tradEndTime - tradStartTime).TotalMinutes}분 : {(decimal)API.GetKRW().totalKRW - startKRW:C2}");
         }
     }
 }
