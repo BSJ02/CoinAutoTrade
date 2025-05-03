@@ -36,8 +36,7 @@ public partial class TradePage : ContentPage
 
     private const decimal FeeRate = 0.0005m;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
-    private const decimal MaxTradeKRW = 300000;   // 매매 시 최대 금액
-    private const decimal MinTradeKRW = 100000;   // 매매 시 최소 금액
+    private const decimal TradeKRW = 300000;   // 매매 시 최대 금액
 
     private bool isHaveMarket = false;
 
@@ -107,23 +106,23 @@ public partial class TradePage : ContentPage
                 ema60, ema120,
                 vwma, bollingerBand,
                 minCandles,
-                availableKRW > MinTradeKRW && isBuyCondition
+                availableKRW >= TradeKRW && isBuyCondition
             );
 
             /* ------------------------------- 매 수 -------------------------------*/
             if (TradeType.Buy.Equals(tradeType))
             {
-                decimal tradeKRW = availableKRW > MaxTradeKRW ? MaxTradeKRW : availableKRW;
+                decimal tradeKRW = availableKRW > TradeKRW ? TradeKRW : availableKRW;
                 decimal buyQuantity = ((decimal)tradeKRW * (1 - FeeRate)) / currPrice;
 
-                if (currPrice * buyQuantity > MinTradeKRW && isBuyCondition)
+                if (currPrice * buyQuantity <= TradeKRW && isBuyCondition)
                 {
                     double haveBalance = API.GetBalance(market);
 
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        stopLossPrice = bollingerBand.LowerBand * 0.997m;
+                        stopLossPrice = bollingerBand.LowerBand;
 
                         totalBuyTrades++;
 
@@ -157,6 +156,7 @@ public partial class TradePage : ContentPage
 
                         AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100:N3}%");
 
+                        trailingStopPrice.Remove(market);
                         entryCondition.Remove(market);
 
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
@@ -193,6 +193,7 @@ public partial class TradePage : ContentPage
 
                 if (API.CancelOrder(order.Uuid) != null)
                 {
+                    trailingStopPrice.Remove(market);
                     entryCondition.Remove(market);
 
                     if (orderSide == OrderSide.bid.ToString())

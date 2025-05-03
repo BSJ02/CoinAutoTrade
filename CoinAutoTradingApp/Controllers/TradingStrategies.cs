@@ -57,9 +57,8 @@ public partial class TradePage : ContentPage
         // 4: 매수가 설정
         decimal bandLowMiddleGap = bollingerBand.Basis - bollingerBand.LowerBand;
 
-        bool isTradePriceCondition = minCandles[0].TradePrice < bollingerBand.LowerBand + bandLowMiddleGap * 0.4m &&
-                                     minCandles[0].TradePrice > minCandles[0].OpeningPrice &&
-                                     minCandles[0].OpeningPrice >= minCandles[1].TradePrice;
+        bool isTradePriceCondition = minCandles[0].TradePrice < bollingerBand.LowerBand + bandLowMiddleGap / 3 &&
+                                     minCandles[0].LowPrice > bollingerBand.LowerBand;
 
 
         return /*isEMACondition &&*/ isBandGapCondition && isBandCondition && isTradePriceCondition;
@@ -75,15 +74,15 @@ public partial class TradePage : ContentPage
 
         trailingStopPrice[market] = trailingStopPrice.ContainsKey(market) ? Math.Max(currPrice, trailingStopPrice[market]) : currPrice;
 
-        if (currPrice < avgPrice * (1 + FeeRate * 3))
+        if (currPrice <= avgPrice * (1 + FeeRate * 2))
             return false;
 
         decimal priceLowHighGap = minCandles[0].HighPrice - minCandles[0].LowPrice;
         if (minCandles[0].OpeningPrice < minCandles[0].TradePrice && 
-            currPrice < minCandles[0].LowPrice + priceLowHighGap * 0.75m)
+            currPrice >= minCandles[0].LowPrice + priceLowHighGap * 0.8m)
             return false;
 
-        return currPrice < trailingStopPrice[market] * 0.9995m;
+        return currPrice <= trailingStopPrice[market] * 0.9995m;
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,
