@@ -78,7 +78,12 @@ public partial class TradePage : ContentPage
         if (currPrice < avgPrice * (1 + FeeRate * 3))
             return false;
 
-        return currPrice < trailingStopPrice[market] * 0.998m;
+        decimal priceLowHighGap = minCandles[0].HighPrice - minCandles[0].LowPrice;
+        if (minCandles[0].OpeningPrice < minCandles[0].TradePrice && 
+            currPrice < minCandles[0].LowPrice + priceLowHighGap * 0.75m)
+            return false;
+
+        return currPrice < trailingStopPrice[market] * 0.9995m;
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,

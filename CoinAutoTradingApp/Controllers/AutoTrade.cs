@@ -36,9 +36,9 @@ public partial class TradePage : ContentPage
 
     private const decimal FeeRate = 0.0005m;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
-    private const double MaxTradeKRW = 1000000;   // 매매 시 최대 금액
+    private const decimal MaxTradeKRW = 300000;   // 매매 시 최대 금액
+    private const decimal MinTradeKRW = 100000;   // 매매 시 최소 금액
 
-    private string targetMarket = "";
     private bool isHaveMarket = false;
 
     // ✅ 프로그램 시작 후, 기존 보유 코인의 avgBuyPrice 세팅
@@ -68,10 +68,6 @@ public partial class TradePage : ContentPage
     {
         foreach (var market in selectedMarkets)
         {
-            if (targetMarket != "" &&   // 주문할 마켓 탐색
-                targetMarket != market) // 해당 마켓만 매매
-                continue;
-
             var minCandles = API.GetCandles(market, (CandleUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
             if (minCandles == null || minCandles.Count < 200)
             {
@@ -81,7 +77,7 @@ public partial class TradePage : ContentPage
 
             isHaveMarket = API.IsHaveMarket(market);
 
-            double availableKRW = API.GetKRW().availableKRW;
+            decimal availableKRW = (decimal)API.GetKRW().availableKRW;
 
             var accounts = API.GetAccount();
 
@@ -111,25 +107,23 @@ public partial class TradePage : ContentPage
                 ema60, ema120,
                 vwma, bollingerBand,
                 minCandles,
-                availableKRW > 5000 && isBuyCondition
+                availableKRW > MinTradeKRW && isBuyCondition
             );
 
             /* ------------------------------- 매 수 -------------------------------*/
             if (TradeType.Buy.Equals(tradeType))
             {
-                double tradeKRW = availableKRW > MaxTradeKRW ? MaxTradeKRW : availableKRW;
+                decimal tradeKRW = availableKRW > MaxTradeKRW ? MaxTradeKRW : availableKRW;
                 decimal buyQuantity = ((decimal)tradeKRW * (1 - FeeRate)) / currPrice;
 
-                if (currPrice * buyQuantity > 5000 && isBuyCondition)
+                if (currPrice * buyQuantity > MinTradeKRW && isBuyCondition)
                 {
                     double haveBalance = API.GetBalance(market);
 
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        stopLossPrice = bollingerBand.LowerBand * 0.995m;
-
-                        targetMarket = market;
+                        stopLossPrice = bollingerBand.LowerBand * 0.997m;
 
                         totalBuyTrades++;
 
@@ -159,8 +153,6 @@ public partial class TradePage : ContentPage
                     {
                         stopLossPrice = 0;
 
-                        targetMarket = "";
-
                         totalSellTrades++;
 
                         AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100:N3}%");
@@ -187,11 +179,6 @@ public partial class TradePage : ContentPage
 
         if ((DateTime.Now - pendingOrders[market].time).TotalSeconds > PendingOrderTimeLimit)
         {
-            if (!isHaveMarket)
-            {
-                targetMarket = "";
-            }
-
             var openOrders = API.GetOpenOrders(market);
             if (openOrders == null || openOrders.Count == 0)
             {
