@@ -32,7 +32,7 @@ public partial class TradePage : ContentPage
 
         // 2: 유동성 확인
         decimal bandLowerUpperGapPercent = (bollingerBand.UpperBand - bollingerBand.LowerBand) / bollingerBand.UpperBand;
-        bool isBandGapCondition = bandLowerUpperGapPercent <= 0.04m &&
+        bool isBandGapCondition = bandLowerUpperGapPercent <= 0.035m &&
                                   bandLowerUpperGapPercent >= 0.01m;
 
 
@@ -61,7 +61,7 @@ public partial class TradePage : ContentPage
                                      minCandles[0].LowPrice > bollingerBand.LowerBand;
 
 
-        return /*isEMACondition &&*/ isBandGapCondition && isBandCondition && isTradePriceCondition;
+        return isBandGapCondition && isBandCondition && isTradePriceCondition;
     }
 
     public bool ShouldTakeProfit(decimal currPrice, decimal avgPrice,
