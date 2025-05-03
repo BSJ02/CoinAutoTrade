@@ -58,7 +58,7 @@ public partial class TradePage : ContentPage
         decimal bandLowMiddleGap = bollingerBand.Basis - bollingerBand.LowerBand;
 
         bool isTradePriceCondition = minCandles[0].TradePrice < bollingerBand.LowerBand + bandLowMiddleGap / 3 &&
-                                     minCandles[0].LowPrice > bollingerBand.LowerBand;
+                                     minCandles[0].LowPrice > bollingerBand.LowerBand + bandLowMiddleGap / 6;
 
 
         return isBandGapCondition && isBandCondition && isTradePriceCondition;
@@ -77,12 +77,7 @@ public partial class TradePage : ContentPage
         if (currPrice <= avgPrice * (1 + FeeRate * 2))
             return false;
 
-        decimal priceLowHighGap = minCandles[0].HighPrice - minCandles[0].LowPrice;
-        if (minCandles[0].OpeningPrice < minCandles[0].TradePrice && 
-            currPrice >= minCandles[0].LowPrice + priceLowHighGap * 0.8m)
-            return false;
-
-        return currPrice <= trailingStopPrice[market] * 0.9995m;
+        return currPrice <= trailingStopPrice[market] * 0.999m;
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,
