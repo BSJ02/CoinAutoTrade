@@ -46,7 +46,7 @@ namespace CoinAutoTradingApp.Utilities
 
             return rsi;
         }
-    
+
 
         // ATR
         public static decimal ATR(List<CandleMinute> candles, int period = 14, int count = 14)
@@ -106,6 +106,67 @@ namespace CoinAutoTradingApp.Utilities
             }
 
             return emaValues;
+        }
+
+        private static List<decimal> EmaList(List<decimal> values, int period)
+        {
+            List<decimal> emaValues = new List<decimal>(new decimal[values.Count]);
+            decimal multiplier = 2m / (period + 1);
+
+            int startIndex = values.Count - period;
+            if (startIndex < 0) return emaValues;
+
+            decimal sma = values.Skip(startIndex).Take(values.Count - startIndex).Average();
+            emaValues[startIndex] = sma;
+            decimal previousEma = sma;
+
+            for (int i = startIndex - 1; i >= 0; i--)
+            {
+                decimal value = values[i];
+                decimal ema = ((value - previousEma) * multiplier) + previousEma;
+                emaValues[i] = ema;
+                previousEma = ema;
+            }
+
+            return emaValues;
+        }
+
+        // WT Cross
+        public static List<decimal> WtCross(List<CandleMinute> candles, int channelLength = 9, int averageLength = 12)
+        {
+            if (candles == null || candles.Count < channelLength + averageLength)
+                throw new ArgumentException("캔들 데이터가 부족합니다.");
+
+            List<decimal> typicalPrices = new List<decimal>();
+            for (int i = 0; i < candles.Count; i++)
+            {
+                decimal tp = (candles[i].HighPrice + candles[i].LowPrice + candles[i].TradePrice) / 3;
+                typicalPrices.Add(tp);
+            }
+
+            // TypicalPrice 기준 EMA
+            List<decimal> esa = EmaList(typicalPrices, channelLength);
+
+            List<decimal> dList = new List<decimal>();
+            for (int i = 0; i < typicalPrices.Count; i++)
+            {
+                dList.Add(Math.Abs(typicalPrices[i] - esa[i]));
+            }
+
+            List<decimal> de = EmaList(dList, channelLength);
+
+            List<decimal> ci = new List<decimal>();
+            for (int i = 0; i < typicalPrices.Count; i++)
+            {
+                if (de[i] == 0)
+                    ci.Add(0);
+                else
+                    ci.Add((typicalPrices[i] - esa[i]) / (0.015m * de[i]));
+            }
+
+            List<decimal> wt = EmaList(ci, averageLength);
+
+            return wt;
         }
 
         // VWMA
@@ -224,23 +285,146 @@ namespace CoinAutoTradingApp.Utilities
         }
 
 
-        public static double Slope((int index, double price) recentCandle, (int index, double price) prevCandle)
+        // MACD
+        public static (List<decimal> macdLine, List<decimal> signalLine, List<decimal> histogram) MACD(List<CandleMinute> candles, int shortPeriod = 12, int longPeriod = 26, int signalPeriod = 9)
         {
-            if (recentCandle.index == prevCandle.index) return double.NaN;  // 분모 0 방지
+            if (candles == null || candles.Count < longPeriod + signalPeriod)
+                throw new ArgumentException("캔들 데이터가 부족합니다.");
 
-            double slope = (recentCandle.price - prevCandle.price) / (prevCandle.index - recentCandle.index); // 0이 최신 캔들이므로 분모 변경
-            return slope;
+            // 1. Short EMA (12) & Long EMA (26)
+            List<decimal> shortEma = EMAHistory(candles, shortPeriod);
+            List<decimal> longEma = EMAHistory(candles, longPeriod);
+
+            List<decimal> macdLine = new List<decimal>(new decimal[candles.Count]);
+            for (int i = 0; i < candles.Count; i++)
+            {
+                macdLine[i] = shortEma[i] - longEma[i];
+            }
+
+            // 2. Signal Line (MACD의 EMA 9)
+            List<decimal> signalLine = EmaList(macdLine, signalPeriod);
+
+            // 3. Histogram (MACD - Signal)
+            List<decimal> histogram = new List<decimal>(new decimal[candles.Count]);
+            for (int i = 0; i < candles.Count; i++)
+            {
+                histogram[i] = macdLine[i] - signalLine[i];
+            }
+
+            return (macdLine, signalLine, histogram);
         }
 
-        public static double Intercept(double slope, (int index, double price) candle)
+
+        // Stochastic Oscillator
+        public static (List<decimal> kValues, List<decimal> dValues) Stochastic(List<CandleMinute> candles, int kPeriod = 14, int dPeriod = 3)
         {
-            double intercept = candle.price - slope * candle.index;
-            return intercept;
+            if (candles == null || candles.Count < kPeriod + dPeriod)
+                throw new ArgumentException("캔들 데이터가 부족합니다.");
+
+            List<decimal> kValues = new List<decimal>(new decimal[candles.Count]);
+            List<decimal> dValues = new List<decimal>(new decimal[candles.Count]);
+
+            // %K 계산
+            for (int i = candles.Count - kPeriod; i >= 0; i--)
+            {
+                decimal highestHigh = candles.Skip(i).Take(kPeriod).Max(c => c.HighPrice);
+                decimal lowestLow = candles.Skip(i).Take(kPeriod).Min(c => c.LowPrice);
+                decimal currentClose = candles[i].TradePrice;
+
+                if (highestHigh == lowestLow)
+                {
+                    kValues[i] = 50; // 변동 없으면 50 고정
+                }
+                else
+                {
+                    kValues[i] = (currentClose - lowestLow) / (highestHigh - lowestLow) * 100;
+                }
+            }
+
+            // %D 계산 (K값들의 이동평균)
+            for (int i = candles.Count - kPeriod; i >= 0; i--)
+            {
+                if (i + dPeriod <= candles.Count)
+                {
+                    decimal sumK = 0;
+                    for (int j = i; j < i + dPeriod; j++)
+                    {
+                        sumK += kValues[j];
+                    }
+                    dValues[i] = sumK / dPeriod;
+                }
+            }
+
+            return (kValues, dValues);
         }
 
-        public static decimal Volume(CandleMinute candle)
+
+        // BollingerBand
+        public static BollingerBand BollingerBand(List<CandleMinute> candles, int period = 20, decimal k = 2m)
         {
-            return candle.CandleAccTradeVolume;
+            if (candles == null || candles.Count < period)
+                throw new ArgumentException($"캔들 데이터가 부족합니다. 최소 {period}개의 캔들이 필요합니다.");
+
+            // 최신 N개 캔들에서 종가만 추출
+            var recentCloses = candles.Take(period).Select(c => c.TradePrice).ToList();
+
+            // 평균 계산 (Basis)
+            decimal mean = recentCloses.Average();
+
+            // 표준편차 계산
+            double variance = recentCloses
+                .Select(p => Math.Pow((double)(p - mean), 2))
+                .Average();
+            decimal stdDev = (decimal)Math.Sqrt(variance);
+
+            // 밴드 계산
+            decimal upper = mean + k * stdDev;
+            decimal lower = mean - k * stdDev;
+
+            return new BollingerBand
+            {
+                Basis = mean,
+                UpperBand = upper,
+                LowerBand = lower
+            };
+        }
+
+
+
+        public static bool GetEMAConvergenceStates(List<decimal[]> emaArrays, int lookback = 6, decimal threshold = 0.005m)
+        {
+            for (int i = 1; i <= lookback; i++)
+            {
+                decimal minEMA = decimal.MaxValue;
+                decimal maxEMA = decimal.MinValue;
+
+                foreach (decimal[] emaArray in emaArrays)
+                {
+                    minEMA = Math.Min(minEMA, emaArray[i]);
+                    maxEMA = Math.Max(maxEMA, emaArray[i]);
+                }
+
+                if ((maxEMA - minEMA) / maxEMA > threshold)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static bool IsEmaTrendingUp(decimal[] ema, int lookback = 5)
+        {
+            if (ema.Length < lookback + 1)
+                return false;
+
+            for (int i = 0; i < lookback; i++)
+            {
+                if (ema[i] <= ema[i + 1])  // candles[0]이 최신일 때
+                    return false;
+            }
+
+            return true;
         }
     }
 }

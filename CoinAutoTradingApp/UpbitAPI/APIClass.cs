@@ -321,7 +321,7 @@ namespace CoinAutoTradingApp.UpbitAPI
             return JsonConvert.DeserializeObject<List<MarketAll>>(data);
 
         }
-        public List<CandleMinute> GetCandleMinutes(string market, CandleUnit unit, DateTime? to = null, int count = 1)
+        public List<CandleMinute> GetCandles(string market, CandleUnit unit, DateTime? to = null, int count = 1)
         {
             // ✅ 'to'가 null이면 현재 시간 기준으로 설정
             DateTime requestTime = to ?? DateTime.UtcNow;

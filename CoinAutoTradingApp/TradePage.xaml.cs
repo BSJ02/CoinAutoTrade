@@ -92,6 +92,7 @@ public partial class TradePage : ContentPage
             tradeLoopTokenSource.Dispose();
             tradeLoopTokenSource = null;
             AddChatMessage("🛑 자동 매매 중지됨.");
+            AddChatMessage($"매수: {totalBuyTrades}회, 매도: {totalSellTrades}회");
             AddChatMessage($"시간: {(int)(tradEndTime - tradStartTime).TotalMinutes}분 : {API.GetKRW().totalKRW - totalProfit:C2}");
         }
     }

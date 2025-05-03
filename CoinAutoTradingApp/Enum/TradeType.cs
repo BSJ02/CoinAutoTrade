@@ -16,7 +16,7 @@ namespace CoinAutoTradingApp.Enum
     public enum EntryCondition
     {
         None,
-        Ema50AboveEma200,  // EMA50 > EMA200: 단기 추세가 장기 추세를 돌파
-        Ema200AboveEma50  // EMA200 > EMA50: 단기 추세가 장기 추세를 돌파
+        Ema50AboveVWMA,  // EMA50 > VWMA: 단기 추세가 장기 추세를 돌파
+        VWMAAboveEma50  // VWMA > EMA50: 단기 추세가 장기 추세를 돌파
     }
 }

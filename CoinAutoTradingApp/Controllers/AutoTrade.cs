@@ -29,6 +29,11 @@ public partial class TradePage : ContentPage
 
     private Dictionary<string, DateTime> waitBuyTime;
 
+    private int totalBuyTrades = 0;
+    private int totalSellTrades = 0;
+
+    private decimal stopLossPrice = 0;
+
     private const decimal FeeRate = 0.005m;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
     private const double MaxTradeKRW = 1000000;   // 매매 시 최대 금액
@@ -67,7 +72,7 @@ public partial class TradePage : ContentPage
                 targetMarket != market) // 해당 마켓만 매매
                 continue;
 
-            var minCandles = API.GetCandleMinutes(market, (CandleUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
+            var minCandles = API.GetCandles(market, (CandleUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
             if (minCandles == null || minCandles.Count < 200)
             {
                 AddDebugMessage($"⚠️ {market} 캔들 데이터 부족");
@@ -80,17 +85,18 @@ public partial class TradePage : ContentPage
 
             var accounts = API.GetAccount();
 
-            decimal prevPrice = minCandles[1].TradePrice;
             decimal currPrice = minCandles[0].TradePrice;
             decimal avgPrice = 0;
             if (API.GetAccount(market) != null)
             {
                 avgPrice = API.GetAccount(market).AvgBuyPrice;
             }
-            decimal ema50 = Calculate.EMAHistory(minCandles, 50).ToArray()[0];
-            decimal ema200 = Calculate.EMAHistory(minCandles, 200).ToArray()[0];
-            decimal vwma = Calculate.VWMA(minCandles, 100)[0];
-            decimal poc = Calculate.POC(minCandles, 50);
+            decimal[] ema5 = Calculate.EMAHistory(minCandles, 5).ToArray();
+            decimal[] ema20 = Calculate.EMAHistory(minCandles, 20).ToArray();
+            decimal[] ema60 = Calculate.EMAHistory(minCandles, 60).ToArray();
+            decimal[] ema120 = Calculate.EMAHistory(minCandles, 120).ToArray();
+            decimal[] vwma = Calculate.VWMA(minCandles, 100).ToArray();
+            BollingerBand bollingerBand = Calculate.BollingerBand(minCandles);
 
             // 미체결 주문 취소
             CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());
@@ -101,8 +107,9 @@ public partial class TradePage : ContentPage
             // 매매
             var tradeType = EvaluateTradeConditions(
                 currPrice, avgPrice,
-                ema50, ema200,
-                vwma, poc,
+                ema5, ema20,
+                ema60, ema120,
+                vwma, bollingerBand,
                 minCandles,
                 availableKRW > 5000 && isBuyCondition
             );
@@ -120,9 +127,11 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
+                        stopLossPrice = bollingerBand.LowerBand * 0.997m;
+
                         targetMarket = market;
 
-                        // 딕셔너리 초기화
+                        totalBuyTrades++;
 
                         waitBuyTime[market] = DateTime.Now; // 급락 때 연속 매수 방지
 
@@ -148,7 +157,11 @@ public partial class TradePage : ContentPage
                     MakeOrderMarketSell sellOrder = API.MakeOrderMarketSell(market, sellVolume);
                     if (sellOrder != null)
                     {
+                        stopLossPrice = 0;
+
                         targetMarket = "";
+
+                        totalSellTrades++;
 
                         AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {(currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100:N3}%");
 
@@ -194,6 +207,15 @@ public partial class TradePage : ContentPage
                 if (API.CancelOrder(order.Uuid) != null)
                 {
                     entryCondition.Remove(market);
+
+                    if (orderSide == OrderSide.bid.ToString())
+                    {
+                        totalBuyTrades--;
+                    }
+                    else
+                    {
+                        totalSellTrades--;
+                    }
 
                     AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");
 
