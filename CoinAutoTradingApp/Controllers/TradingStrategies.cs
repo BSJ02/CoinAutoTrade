@@ -27,10 +27,11 @@ public partial class TradePage : ContentPage
         bool isMACDCondition = macd.MacdLine[0] > macd.SignalLine[0];
 
         // 2: RSI 확인
-        bool isRSICondition = rsi >= 50;
+        bool isRSICondition = rsi > 45 && rsi < 70;
 
         // 3: Stochastic 확인
-        bool isStochasticCondition = stochastic.K[0] < 80 && stochastic.K[0] > stochastic.D[0];
+        bool isStochasticCondition = stochastic.K[0] <= 55 && stochastic.K[0] > 25 &&
+                                     stochastic.K[0] > stochastic.D[0] && stochastic.K[0] > stochastic.K[1] + 1.5m;
 
         return isMACDCondition && isRSICondition && isStochasticCondition;
     }
@@ -49,7 +50,7 @@ public partial class TradePage : ContentPage
             return false;
 
         return (stochastic.K[1] >= 80 && stochastic.K[0] < 80) ||
-               (stochastic.K[0] < stochastic.D[0]);
+               (stochastic.K[0] < stochastic.D[0] && stochastic.D[0] < stochastic.D[1] - 1.5m);
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,

@@ -119,7 +119,7 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        stopLossPrice = minCandles[0].LowPrice * 0.999m;
+                        stopLossPrice = minCandles[0].LowPrice;
 
                         totalBuyTrades++;
 
