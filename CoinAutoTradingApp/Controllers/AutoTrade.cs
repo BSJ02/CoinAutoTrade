@@ -122,7 +122,7 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        stopLossPrice = bollingerBand.LowerBand * 0.999m;
+                        stopLossPrice = bollingerBand.LowerBand * 0.9995m;
 
                         totalBuyTrades++;
 

@@ -26,12 +26,12 @@ public partial class TradePage : ContentPage
 
 
         // 1: 음봉일 때 거래량 상승
-        bool isVolumeCondition = minCandles[0].OpeningPrice > minCandles[0].TradePrice &&
-                                 minCandles.Skip(1).Take(2).Average(c => c.CandleAccTradeVolume) * 1.25m < minCandles[0].CandleAccTradeVolume;
-        if (isVolumeCondition)
-        {
-            return false;
-        }
+        //bool isVolumeCondition = minCandles[1].OpeningPrice > minCandles[1].TradePrice &&
+        //                         minCandles.Skip(1).Take(2).Average(c => c.CandleAccTradeVolume) < minCandles[1].CandleAccTradeVolume;
+        //if (isVolumeCondition)
+        //{
+        //    return false;
+        //}
 
 
         // 2: 유동성 확인
@@ -43,13 +43,13 @@ public partial class TradePage : ContentPage
         // 3: 로우 밴드 안 뚫었는지 확인
         bool isBandCondition = true;
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
         {
             var candles = minCandles.Skip(i).ToList();
             var band = Calculate.BollingerBand(candles);
 
             isBandCondition = minCandles[i].HighPrice < band.Basis &&
-                              minCandles[i].LowPrice > band.LowerBand;
+                              minCandles[i].LowPrice >= band.LowerBand * 0.9995m;
 
             if (!isBandCondition)
             {
@@ -78,10 +78,10 @@ public partial class TradePage : ContentPage
 
         trailingStopPrice[market] = trailingStopPrice.ContainsKey(market) ? Math.Max(currPrice, trailingStopPrice[market]) : currPrice;
 
-        if (currPrice < avgPrice * (1 + FeeRate * 4))
+        if (currPrice < avgPrice * (1 + FeeRate * 6))
             return false;
 
-        return currPrice <= trailingStopPrice[market] * 0.9995m;
+        return currPrice <= trailingStopPrice[market] * 0.999m;
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,
