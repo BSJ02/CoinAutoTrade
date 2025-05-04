@@ -15,8 +15,7 @@ public partial class TradePage : ContentPage
 {
     // 매수 조건
     public bool IsBuyConditionOne(decimal currPrice,
-                                  decimal[] ema5, decimal[] ema20, decimal[] ema60, decimal[] ema120,
-                                  BollingerBand bollingerBand,
+                                  double rsi, MACD macd, Stochastic stochastic,
                                   List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
@@ -24,52 +23,20 @@ public partial class TradePage : ContentPage
         if (pendingBuyOrders.ContainsKey(market))
             return false;
 
+        // 1: MACD 확인
+        bool isMACDCondition = macd.MacdLine[0] > macd.SignalLine[0];
 
-        // 1: 음봉일 때 거래량 상승
-        //bool isVolumeCondition = minCandles[1].OpeningPrice > minCandles[1].TradePrice &&
-        //                         minCandles.Skip(1).Take(2).Average(c => c.CandleAccTradeVolume) < minCandles[1].CandleAccTradeVolume;
-        //if (isVolumeCondition)
-        //{
-        //    return false;
-        //}
+        // 2: RSI 확인
+        bool isRSICondition = rsi >= 50;
 
+        // 3: Stochastic 확인
+        bool isStochasticCondition = stochastic.K[0] < 80 && stochastic.K[0] > stochastic.D[0];
 
-        // 2: 유동성 확인
-        decimal bandLowerUpperGapPercent = (bollingerBand.UpperBand - bollingerBand.LowerBand) / bollingerBand.UpperBand;
-        bool isBandGapCondition = bandLowerUpperGapPercent <= 0.035m &&
-                                  bandLowerUpperGapPercent >= 0.01m;
-
-
-        // 3: 로우 밴드 안 뚫었는지 확인
-        bool isBandCondition = true;
-
-        for (int i = 0; i < 4; i++)
-        {
-            var candles = minCandles.Skip(i).ToList();
-            var band = Calculate.BollingerBand(candles);
-
-            isBandCondition = minCandles[i].HighPrice < band.Basis &&
-                              minCandles[i].LowPrice >= band.LowerBand * 0.9995m;
-
-            if (!isBandCondition)
-            {
-                break;
-            }
-        }
-
-
-        // 4: 매수가 설정
-        decimal bandLowMiddleGap = bollingerBand.Basis - bollingerBand.LowerBand;
-
-        bool isTradePriceCondition = minCandles[0].TradePrice < bollingerBand.LowerBand + bandLowMiddleGap / 3 &&
-                                     minCandles[0].LowPrice > bollingerBand.LowerBand + bandLowMiddleGap / 6;
-
-
-        return isBandGapCondition && isBandCondition && isTradePriceCondition;
+        return isMACDCondition && isRSICondition && isStochasticCondition;
     }
 
     public bool ShouldTakeProfit(decimal currPrice, decimal avgPrice,
-                                 BollingerBand bollingerBand,
+                                 Stochastic stochastic,
                                  List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
@@ -81,7 +48,8 @@ public partial class TradePage : ContentPage
         if (currPrice < avgPrice * (1 + FeeRate * 6))
             return false;
 
-        return currPrice <= trailingStopPrice[market] * 0.999m;
+        return (stochastic.K[1] >= 80 && stochastic.K[0] < 80) ||
+               (stochastic.K[0] < stochastic.D[0]);
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,
@@ -95,15 +63,14 @@ public partial class TradePage : ContentPage
     }
 
     public TradeType EvaluateTradeConditions(decimal currPrice, decimal avgPrice,
-                                             decimal[] ema5, decimal[] ema20, decimal[] ema60, decimal[] ema120, decimal[] vwma,
-                                             BollingerBand bollingerBand,
+                                             double rsi, MACD macd, Stochastic stochastic,
                                              List<CandleMinute> minCandles, bool isKRWHeld)
     {
         // (매수)
-        bool isBuyConditionOne = IsBuyConditionOne(currPrice, ema5, ema20, ema60, ema120, bollingerBand, minCandles) && isKRWHeld;
+        bool isBuyConditionOne = IsBuyConditionOne(currPrice, rsi, macd, stochastic, minCandles) && isKRWHeld;
 
         // 익절 (매도)
-        bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, bollingerBand, minCandles);
+        bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, stochastic, minCandles);
         // 손절 (매도)
         bool isStopLoss = ShouldStopLoss(currPrice, avgPrice, minCandles);
         

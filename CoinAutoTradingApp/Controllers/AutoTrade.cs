@@ -12,6 +12,7 @@ using CoinAutoTradingApp.UpbitAPI;
 using CoinAutoTradingApp.UpbitAPI.Models;
 using static CoinAutoTradingApp.UpbitAPI.APIClass;
 using CoinAutoTradingApp.Enum;
+using System.Security.Cryptography;
 
 namespace CoinAutoTradingApp;
 public partial class TradePage : ContentPage
@@ -86,12 +87,10 @@ public partial class TradePage : ContentPage
             {
                 avgPrice = API.GetAccount(market).AvgBuyPrice;
             }
-            decimal[] ema5 = Calculate.EMAHistory(minCandles, 5).ToArray();
-            decimal[] ema20 = Calculate.EMAHistory(minCandles, 20).ToArray();
-            decimal[] ema60 = Calculate.EMAHistory(minCandles, 60).ToArray();
-            decimal[] ema120 = Calculate.EMAHistory(minCandles, 120).ToArray();
-            decimal[] vwma = Calculate.VWMA(minCandles, 100).ToArray();
-            BollingerBand bollingerBand = Calculate.BollingerBand(minCandles);
+
+            var rsi = Calculate.RSI(minCandles);
+            var macd = Calculate.MACD(minCandles);
+            var stochastic = Calculate.Stochastic(minCandles);
 
             // 미체결 주문 취소
             CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());
@@ -102,9 +101,7 @@ public partial class TradePage : ContentPage
             // 매매
             var tradeType = EvaluateTradeConditions(
                 currPrice, avgPrice,
-                ema5, ema20,
-                ema60, ema120,
-                vwma, bollingerBand,
+                rsi, macd, stochastic,
                 minCandles,
                 availableKRW >= TradeKRW && isBuyCondition
             );
@@ -122,7 +119,7 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        stopLossPrice = bollingerBand.LowerBand * 0.9995m;
+                        stopLossPrice = minCandles[0].LowPrice * 0.999m;
 
                         totalBuyTrades++;
 

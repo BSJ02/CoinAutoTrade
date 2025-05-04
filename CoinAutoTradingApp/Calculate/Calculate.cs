@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CoinAutoTradingApp.UpbitAPI.Models;
 using System.Runtime.Intrinsics.X86;
+using System.Reflection.PortableExecutable;
 
 namespace CoinAutoTradingApp.Utilities
 {
@@ -196,6 +197,7 @@ namespace CoinAutoTradingApp.Utilities
             return vwmaValues;
         }
 
+        // POC
         public static decimal POC(List<CandleMinute> candles, int period)
         {
             decimal currentPrice = candles[0].TradePrice;
@@ -286,7 +288,7 @@ namespace CoinAutoTradingApp.Utilities
 
 
         // MACD
-        public static (List<decimal> macdLine, List<decimal> signalLine, List<decimal> histogram) MACD(List<CandleMinute> candles, int shortPeriod = 12, int longPeriod = 26, int signalPeriod = 9)
+        public static MACD MACD(List<CandleMinute> candles, int shortPeriod = 12, int longPeriod = 26, int signalPeriod = 9)
         {
             if (candles == null || candles.Count < longPeriod + signalPeriod)
                 throw new ArgumentException("캔들 데이터가 부족합니다.");
@@ -311,12 +313,12 @@ namespace CoinAutoTradingApp.Utilities
                 histogram[i] = macdLine[i] - signalLine[i];
             }
 
-            return (macdLine, signalLine, histogram);
+            return new MACD() { MacdLine = macdLine, SignalLine = signalLine, Histogram = histogram };
         }
 
 
         // Stochastic Oscillator
-        public static (List<decimal> kValues, List<decimal> dValues) Stochastic(List<CandleMinute> candles, int kPeriod = 14, int dPeriod = 3)
+        public static Stochastic Stochastic(List<CandleMinute> candles, int kPeriod = 14, int dPeriod = 3)
         {
             if (candles == null || candles.Count < kPeriod + dPeriod)
                 throw new ArgumentException("캔들 데이터가 부족합니다.");
@@ -355,7 +357,8 @@ namespace CoinAutoTradingApp.Utilities
                 }
             }
 
-            return (kValues, dValues);
+
+            return new Stochastic() { K = kValues, D = dValues };
         }
 
 
