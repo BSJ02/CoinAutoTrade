@@ -15,29 +15,43 @@ public partial class TradePage : ContentPage
 {
     // 매수 조건
     public bool IsBuyConditionOne(decimal currPrice,
-                                  double rsi, MACD macd, Stochastic stochastic,
                                   List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
 
-        if (pendingBuyOrders.ContainsKey(market))
+        if (pendingBuyOrders.ContainsKey(market) && isHaveMarket)
             return false;
 
-        // 1: MACD 확인
-        bool isMACDCondition = macd.MacdLine[0] > macd.SignalLine[0];
+        var currCandle = minCandles[0];
+        var prevCandle = minCandles[1];
 
-        // 2: RSI 확인
-        bool isRSICondition = rsi > 45 && rsi < 70;
+        // 0: 매매가 설정
+        bool isTradePrice = currCandle.TradePrice <= currCandle.OpeningPrice &&
+                            currCandle.TradePrice >= prevCandle.TradePrice;
 
-        // 3: Stochastic 확인
-        bool isStochasticCondition = stochastic.K[0] <= 55 && stochastic.K[0] > 25 &&
-                                     stochastic.K[0] > stochastic.D[0] && stochastic.K[0] > stochastic.K[1] + 1.5m;
+        // 1: 하락 추세 반전
+        decimal candleLowHighPriceGap = prevCandle.HighPrice - prevCandle.LowPrice;
+        bool isDowntrendReversing = prevCandle.LowPrice <= minCandles.Skip(2).Take(5).Min(c => c.LowPrice) &&
+                                    prevCandle.TradePrice >= prevCandle.LowPrice + candleLowHighPriceGap * 0.8m &&
+                                    prevCandle.OpeningPrice >= prevCandle.LowPrice + candleLowHighPriceGap * 0.8m;
 
-        return isMACDCondition && isRSICondition && isStochasticCondition;
+        // 2: BullishEngulfingCandle
+        bool isBullishEngulfingCandle = Calculate.IsBullishEngulfingCandle(minCandles);
+
+        // 3: 모닝스타 캔들 패턴
+        bool isMorningStarCandle = minCandles[3].OpeningPrice > minCandles[3].TradePrice &&
+                                   Calculate.IsDojiCandle(minCandles[2]) &&
+                                   minCandles[1].TradePrice > minCandles[3].TradePrice;
+
+        return isTradePrice &&
+               (
+                   isDowntrendReversing ||
+                   isBullishEngulfingCandle ||
+                   isMorningStarCandle
+               );
     }
 
     public bool ShouldTakeProfit(decimal currPrice, decimal avgPrice,
-                                 Stochastic stochastic,
                                  List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
@@ -49,8 +63,8 @@ public partial class TradePage : ContentPage
         if (currPrice < avgPrice * (1 + FeeRate * 6))
             return false;
 
-        return (stochastic.K[1] >= 80 && stochastic.K[0] < 80) ||
-               (stochastic.K[0] < stochastic.D[0] && stochastic.D[0] < stochastic.D[1] - 1.5m);
+        return currPrice >= profitPrice ||
+               currPrice <= trailingStopPrice[market] * 0.998m;
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,
@@ -64,14 +78,13 @@ public partial class TradePage : ContentPage
     }
 
     public TradeType EvaluateTradeConditions(decimal currPrice, decimal avgPrice,
-                                             double rsi, MACD macd, Stochastic stochastic,
                                              List<CandleMinute> minCandles, bool isKRWHeld)
     {
         // (매수)
-        bool isBuyConditionOne = IsBuyConditionOne(currPrice, rsi, macd, stochastic, minCandles) && isKRWHeld;
+        bool isBuyConditionOne = IsBuyConditionOne(currPrice, minCandles) && isKRWHeld;
 
         // 익절 (매도)
-        bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, stochastic, minCandles);
+        bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, minCandles);
         // 손절 (매도)
         bool isStopLoss = ShouldStopLoss(currPrice, avgPrice, minCandles);
         
@@ -99,7 +112,7 @@ public partial class TradePage : ContentPage
         {
             if (isBuyConditionOne)
             {
-                return ExecuteBuyOrder("BB 매수"); // 매수
+                return ExecuteBuyOrder("매수"); // 매수
             }
         }
 

@@ -33,6 +33,7 @@ public partial class TradePage : ContentPage
     private int totalBuyTrades = 0;
     private int totalSellTrades = 0;
 
+    private decimal profitPrice = 0;
     private decimal stopLossPrice = 0;
 
     private const decimal FeeRate = 0.0005m;  // 수수료
@@ -88,10 +89,6 @@ public partial class TradePage : ContentPage
                 avgPrice = API.GetAccount(market).AvgBuyPrice;
             }
 
-            var rsi = Calculate.RSI(minCandles);
-            var macd = Calculate.MACD(minCandles);
-            var stochastic = Calculate.Stochastic(minCandles);
-
             // 미체결 주문 취소
             CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());
             CancelPendingOrder(pendingSellOrders, market, OrderSide.ask.ToString());
@@ -101,7 +98,6 @@ public partial class TradePage : ContentPage
             // 매매
             var tradeType = EvaluateTradeConditions(
                 currPrice, avgPrice,
-                rsi, macd, stochastic,
                 minCandles,
                 availableKRW >= TradeKRW && isBuyCondition
             );
@@ -119,7 +115,8 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        stopLossPrice = minCandles[0].LowPrice;
+                        profitPrice = Calculate.GetProfitPrice(minCandles);
+                        stopLossPrice = Calculate.GetStopLossPrice(minCandles);
 
                         totalBuyTrades++;
 
@@ -151,7 +148,7 @@ public partial class TradePage : ContentPage
 
                         totalSellTrades++;
 
-                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {TradeKRW * ((currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100):N3}%");
+                        AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {((currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100):N3}%");
 
                         trailingStopPrice.Remove(market);
                         entryCondition.Remove(market);

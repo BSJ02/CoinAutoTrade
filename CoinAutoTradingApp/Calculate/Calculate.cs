@@ -429,5 +429,36 @@ namespace CoinAutoTradingApp.Utilities
 
             return true;
         }
+
+        public static decimal GetProfitPrice(List<CandleMinute> candles)
+        {
+            candles = candles.Skip(2).Take(5).ToList();
+            return (candles.Max(c => c.HighPrice) + candles.Min(c => c.TradePrice)) / 2;
+        }
+
+        public static decimal GetStopLossPrice(List<CandleMinute> candles)
+        {
+            return candles[1].LowPrice;
+        }
+
+        public static bool IsBullishEngulfingCandle(List<CandleMinute> candles)
+        {
+            decimal twoAgoCandleLowHighGap = candles[2].HighPrice - candles[2].LowPrice;
+            decimal oneAgoCandleLowHighGap = candles[1].HighPrice - candles[1].LowPrice;
+            return candles[2].OpeningPrice > candles[2].TradePrice &&
+                   candles[2].LowPrice + twoAgoCandleLowHighGap * 0.4m < candles[2].TradePrice &&
+                   candles[2].LowPrice <= candles[1].LowPrice &&
+                   candles[2].HighPrice < candles[1].HighPrice &&
+                   candles[1].LowPrice + oneAgoCandleLowHighGap * 0.7m < candles[1].TradePrice;
+        }
+
+        public static bool IsDojiCandle(CandleMinute candle)
+        {
+            decimal candleLowHighGap = candle.HighPrice - candle.LowPrice;
+            return candle.LowPrice + candleLowHighGap * 0.45m < candle.OpeningPrice &&
+                   candle.LowPrice + candleLowHighGap * 0.45m < candle.TradePrice &&
+                   candle.LowPrice + candleLowHighGap * 0.55m > candle.OpeningPrice &&
+                   candle.LowPrice + candleLowHighGap * 0.55m > candle.TradePrice;
+        }
     }
 }
