@@ -464,7 +464,7 @@ namespace CoinAutoTradingApp.UpbitAPI
             _15 = 15,
             _30 = 30,
             _60 = 60,
-            _240 = 240
+            _240 = 240,
         }
 
 

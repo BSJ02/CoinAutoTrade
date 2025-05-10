@@ -21,7 +21,7 @@ namespace CoinAutoTradingApp.UpbitAPI.Models
         public string TradeTimeKst { get; set; }   // 최근 거래 시각 (KST)
 
         [JsonProperty("trade_timestamp")]
-        public long TradeTimestamp { get; set; }   // 체결 타임스탬프 (milliseconds)
+        public long? TradeTimestamp { get; set; }   // 체결 타임스탬프 (milliseconds)
 
         [JsonProperty("opening_price")]
         public double OpeningPrice { get; set; }    // 시가
@@ -58,6 +58,9 @@ namespace CoinAutoTradingApp.UpbitAPI.Models
 
         [JsonProperty("acc_trade_price")]
         public double AccTradePrice { get; set; }    // 누적 거래 금액
+
+        [JsonProperty("acc_trade_price_24h")]
+        public double AccTradePrice24h { get; set; }    // 누적 거래 금액 24h
 
         [JsonProperty("acc_trade_volume")]
         public double AccTradeVolume { get; set; }   // 누적 거래량

@@ -13,39 +13,40 @@ namespace CoinAutoTradingApp.Utilities
     public class Calculate
     {
         // RSI
-        public static double RSI(List<CandleMinute> candles, int period = 14, int count = 14)
+        public static double RSI(List<CandleMinute> candles, int period = 14)
         {
-            decimal totalGain = 0;
-            decimal totalLoss = 0;
+            if (candles == null || candles.Count <= period)
+                throw new ArgumentException("캔들 개수가 부족합니다.");
 
-            for (int i = period + count; i > period - 2; i--)
+            var changes = new List<decimal>();
+            for (int i = 0; i < candles.Count - 1; i++)
             {
-                decimal prevClosePrice = candles[i + 1].TradePrice;
-                decimal currClosePrice = candles[i].TradePrice;
-
-                totalGain += Math.Max(0, currClosePrice - prevClosePrice);
-                totalLoss += Math.Max(0, prevClosePrice - currClosePrice);
+                decimal change = candles[i].TradePrice - candles[i + 1].TradePrice;
+                changes.Add(change);
             }
 
-            decimal avgGain = totalGain / count;
-            decimal avgLoss = totalLoss / count;
+            var gains = changes.Select(c => c > 0 ? c : 0).ToList();
+            var losses = changes.Select(c => c < 0 ? Math.Abs(c) : 0).ToList();
 
-            for (int i = period - 2; i >= 0; i--)
-            {
-                decimal prevClosePrice = candles[i + 1].TradePrice;
-                decimal currClosePrice = candles[i].TradePrice;
+            // gains, losses는 period + N개니까 앞에서 period개만 EMA 계산용으로 사용
+            var gainCandles = gains.Select(g => new CandleMinute { TradePrice = g }).ToList();
+            var lossCandles = losses.Select(l => new CandleMinute { TradePrice = l }).ToList();
 
-                decimal gain = Math.Max(0, currClosePrice - prevClosePrice);
-                decimal loss = Math.Max(0, prevClosePrice - currClosePrice);
+            var emaGains = EMAHistory(gainCandles, period);
+            var emaLosses = EMAHistory(lossCandles, period);
 
-                avgGain = (avgGain * (period - 1) + gain) / period;
-                avgLoss = (avgLoss * (period - 1) + loss) / period;
-            }
+            if (emaGains.Count == 0 || emaLosses.Count == 0)
+                throw new InvalidOperationException("EMA 계산 결과가 없습니다.");
 
-            double rs = (double)(avgGain / avgLoss);
-            double rsi = 100 - (100 / (1 + rs));
+            var avgGain = emaGains[0];  // 가장 최신
+            var avgLoss = emaLosses[0];
 
-            return rsi;
+            if (avgLoss == 0)
+                return 100;
+
+            decimal rs = avgGain / avgLoss;
+            decimal rsi = 100 - (100 / (1 + rs));
+            return (double)Math.Round(rsi, 2);
         }
 
 
@@ -254,7 +255,7 @@ namespace CoinAutoTradingApp.Utilities
 
 
         // CCI
-        public static double CCI(List<CandleMinute> candles, int period = 14)
+        public static double CCI(List<CandleMinute> candles, int period = 20)
         {
             var recentCandles = candles.Take(period).ToList();
             var latestCandle = recentCandles[0];
@@ -268,7 +269,7 @@ namespace CoinAutoTradingApp.Utilities
             if (meanDeviation == 0)
                 return 0;
 
-            return (double)(typicalPrice - sma) / (0.015 * (double)meanDeviation);
+            return (double)((typicalPrice - sma) / (0.015m * meanDeviation));
         }
 
 
@@ -393,7 +394,6 @@ namespace CoinAutoTradingApp.Utilities
         }
 
 
-
         public static bool GetEMAConvergenceStates(List<decimal[]> emaArrays, int lookback = 6, decimal threshold = 0.005m)
         {
             for (int i = 1; i <= lookback; i++)
@@ -430,35 +430,90 @@ namespace CoinAutoTradingApp.Utilities
             return true;
         }
 
-        public static decimal GetProfitPrice(List<CandleMinute> candles)
-        {
-            candles = candles.Skip(2).Take(5).ToList();
-            return (candles.Max(c => c.HighPrice) + candles.Min(c => c.TradePrice)) / 2;
-        }
-
-        public static decimal GetStopLossPrice(List<CandleMinute> candles)
-        {
-            return candles[1].LowPrice;
-        }
-
         public static bool IsBullishEngulfingCandle(List<CandleMinute> candles)
         {
-            decimal twoAgoCandleLowHighGap = candles[2].HighPrice - candles[2].LowPrice;
-            decimal oneAgoCandleLowHighGap = candles[1].HighPrice - candles[1].LowPrice;
-            return candles[2].OpeningPrice > candles[2].TradePrice &&
-                   candles[2].LowPrice + twoAgoCandleLowHighGap * 0.4m < candles[2].TradePrice &&
+            return candles[2].LowPrice < candles.Skip(2).Take(10).Min(c => c.LowPrice) &&
+                   candles[2].OpeningPrice > candles[2].TradePrice &&
                    candles[2].LowPrice <= candles[1].LowPrice &&
+                   candles[2].TradePrice == candles[1].OpeningPrice &&
                    candles[2].HighPrice < candles[1].HighPrice &&
-                   candles[1].LowPrice + oneAgoCandleLowHighGap * 0.7m < candles[1].TradePrice;
+                   candles[2].CandleAccTradeVolume < candles[1].CandleAccTradeVolume;
         }
 
         public static bool IsDojiCandle(CandleMinute candle)
         {
             decimal candleLowHighGap = candle.HighPrice - candle.LowPrice;
-            return candle.LowPrice + candleLowHighGap * 0.45m < candle.OpeningPrice &&
-                   candle.LowPrice + candleLowHighGap * 0.45m < candle.TradePrice &&
-                   candle.LowPrice + candleLowHighGap * 0.55m > candle.OpeningPrice &&
-                   candle.LowPrice + candleLowHighGap * 0.55m > candle.TradePrice;
+            return candle.LowPrice + candleLowHighGap * 0.45m <= candle.OpeningPrice &&
+                   candle.LowPrice + candleLowHighGap * 0.45m <= candle.TradePrice &&
+                   candle.LowPrice + candleLowHighGap * 0.55m >= candle.OpeningPrice &&
+                   candle.LowPrice + candleLowHighGap * 0.55m >= candle.TradePrice;
         }
+
+
+        public static SupportResistanceLevels GetSupportResistanceLevels(
+            List<CandleMinute> candles, int range = 60, decimal priceRangePercent = 0.001m, int minTouches = 3)
+        {
+            if (candles == null || candles.Count < range)
+                throw new ArgumentException("Not enough candle data.");
+
+            var recentCandles = candles.Take(range).ToList();
+
+            // 1. 종가 기준 지지선 및 저항선 계산
+            var tradePrices = recentCandles.Select(c => c.TradePrice).ToList();
+            var supportCandidates = GetTouchPriceLevels(tradePrices, priceRangePercent, minTouches, true);
+            var resistanceCandidates = GetTouchPriceLevels(tradePrices, priceRangePercent, minTouches, false);
+
+            decimal supportLine = supportCandidates.Any() ? supportCandidates.Min() : 0;
+            decimal resistanceLine = resistanceCandidates.Any() ? resistanceCandidates.Max() : 0;
+
+            // 2. 손절라인 계산: 지지선에서 0.5% 낮은 값으로 설정
+            decimal stopLossLine = supportLine * (1 - 0.005m); // 0.5% 만큼 낮추기
+
+            return new SupportResistanceLevels
+            {
+                SupportLine = supportLine,
+                ResistanceLine = resistanceLine,
+                StopLossLine = stopLossLine
+            };
+        }
+
+        private static List<decimal> GetTouchPriceLevels(
+            List<decimal> prices, decimal rangePercent, int minTouches, bool isSupport)
+        {
+            var levels = new List<decimal>();
+            foreach (var price in prices)
+            {
+                bool found = false;
+                foreach (var level in levels)
+                {
+                    if (Math.Abs(price - level) / level <= rangePercent)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    levels.Add(price);
+                }
+            }
+
+            var levelCounts = new Dictionary<decimal, int>();
+
+            foreach (var level in levels)
+            {
+                int count = prices.Count(p => Math.Abs(p - level) / level <= rangePercent);
+                if (count >= minTouches)
+                {
+                    levelCounts[level] = count;
+                }
+            }
+
+            // 지지선은 낮은 값 우선, 저항선은 높은 값 우선
+            return isSupport
+                ? levelCounts.OrderBy(k => k.Key).Select(k => k.Key).ToList()
+                : levelCounts.OrderByDescending(k => k.Key).Select(k => k.Key).ToList();
+        }
+
     }
 }

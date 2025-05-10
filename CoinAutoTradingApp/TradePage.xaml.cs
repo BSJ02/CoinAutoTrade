@@ -30,10 +30,10 @@ public partial class TradePage : ContentPage
         pendingBuyOrders = new Dictionary<string, (decimal, DateTime, string)>();
         pendingSellOrders = new Dictionary<string, (decimal, DateTime, string)>();
 
-        entryCondition = new Dictionary<string, EntryCondition>();
-        trailingStopPrice = new Dictionary<string, decimal>();
+        bbCount = new Dictionary<string, int>();
 
-        waitBuyTime = new Dictionary<string, DateTime>();
+        profitPrice = new Dictionary<string, decimal>();
+        stopLossPrice = new Dictionary<string, decimal>();
 
         debugMessageResetTime = DateTime.Now;
         resetTimeLimit = 120;
@@ -70,7 +70,7 @@ public partial class TradePage : ContentPage
                     AddDebugMessage($"❌ 자동 매매 중 오류 발생: {ex.Message}");
                 }
 
-                await Task.Delay(1000);
+                await Task.Delay(500);
 
 
                 if ((DateTime.Now - debugMessageResetTime).TotalSeconds > resetTimeLimit)
@@ -92,7 +92,7 @@ public partial class TradePage : ContentPage
             tradeLoopTokenSource.Dispose();
             tradeLoopTokenSource = null;
             AddChatMessage("🛑 자동 매매 중지됨.");
-            AddChatMessage($"매수: {totalBuyTrades}회, 매도: {totalSellTrades}회");
+            AddChatMessage($"매수: {totalBuyTrades}회");
             AddChatMessage($"시간: {(int)(tradEndTime - tradStartTime).TotalMinutes}분 : {(decimal)API.GetKRW().totalKRW - startKRW:C2}");
         }
     }

@@ -42,11 +42,11 @@ public partial class TradePage : ContentPage
         var tickers = API.GetTicker(marketCodes);
 
         var marketVolumes = tickers
-            .Where(ticker => ticker.AccTradeVolume > 0) // 거래량이 0인 마켓은 제외
+            .Where(ticker => ticker.AccTradePrice24h > 100_000_000_000)
             .Select(ticker => new
             {
                 Market = ticker.Market,
-                Volume = ticker.AccTradePrice
+                Volume = ticker.AccTradePrice24h
             })
             .OrderByDescending(market => market.Volume) // 거래대금 내림차순 정렬
             .Take(15) // 상위 마켓 선택
@@ -56,16 +56,16 @@ public partial class TradePage : ContentPage
 
         foreach (var marketData in marketVolumes)
         {
-            var candles = API.GetCandles(marketData.Market, (CandleUnit)5, DateTime.UtcNow, 200)
+            var candles = API.GetCandles(marketData.Market, (CandleUnit)3, DateTime.UtcNow, 200)
                              ?.Cast<CandleMinute>()
                              .ToList();
 
-            if (candles != null && candles.Count >= 200)
+            if (candles != null && candles.Count >= 200 && !FilterOutCoins(marketData.Market))
             {
                 validMarkets.Add(marketData.Market);
             }
 
-            if (validMarkets.Count == 15)
+            if (validMarkets.Count == 8)
                 break;
         }
 
@@ -73,5 +73,13 @@ public partial class TradePage : ContentPage
         SetSelectedMarkets(selectedMarketsString); // SetSelectedMarkets 호출
 
         AddDebugMessage($"✅ 거래대금 상위 {validMarkets.Count}개 마켓이 자동 매매 대상에 설정되었습니다: {selectedMarketsString}");
+    }
+
+    public bool FilterOutCoins(string market)
+    {
+        return market.Contains("USDT") ||
+               market.Contains("XRP") ||
+               market.Contains("ETH") ||
+               market.Contains("BTC");
     }
 }

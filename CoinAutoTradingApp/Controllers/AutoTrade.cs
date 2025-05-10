@@ -25,20 +25,16 @@ public partial class TradePage : ContentPage
     private Dictionary<string, (decimal price, DateTime time, string side)> pendingBuyOrders;
     private Dictionary<string, (decimal price, DateTime time, string side)> pendingSellOrders;
 
-    private Dictionary<string, EntryCondition> entryCondition;
-    private Dictionary<string, decimal> trailingStopPrice;
-
-    private Dictionary<string, DateTime> waitBuyTime;
+    private Dictionary<string, int> bbCount;
 
     private int totalBuyTrades = 0;
-    private int totalSellTrades = 0;
 
-    private decimal profitPrice = 0;
-    private decimal stopLossPrice = 0;
+    private Dictionary<string, decimal> profitPrice;
+    private Dictionary<string, decimal> stopLossPrice;
 
     private const decimal FeeRate = 0.0005m;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
-    private const decimal TradeKRW = 300000;   // 매매 시 최대 금액
+    private const decimal TradeKRW = 250000;   // 매매 시 최대 금액
 
     private bool isHaveMarket = false;
 
@@ -69,7 +65,7 @@ public partial class TradePage : ContentPage
     {
         foreach (var market in selectedMarkets)
         {
-            var minCandles = API.GetCandles(market, (CandleUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
+            var minCandles = API.GetCandles(market, (CandleUnit)3, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
             if (minCandles == null || minCandles.Count < 200)
             {
                 AddDebugMessage($"⚠️ {market} 캔들 데이터 부족");
@@ -89,6 +85,9 @@ public partial class TradePage : ContentPage
                 avgPrice = API.GetAccount(market).AvgBuyPrice;
             }
 
+            BollingerBand bollingerBand = Calculate.BollingerBand(minCandles, 20, 1);
+            decimal bbDeviation = bollingerBand.UpperBand - bollingerBand.Basis;
+
             // 미체결 주문 취소
             CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());
             CancelPendingOrder(pendingSellOrders, market, OrderSide.ask.ToString());
@@ -98,6 +97,7 @@ public partial class TradePage : ContentPage
             // 매매
             var tradeType = EvaluateTradeConditions(
                 currPrice, avgPrice,
+                bollingerBand, bbDeviation,
                 minCandles,
                 availableKRW >= TradeKRW && isBuyCondition
             );
@@ -115,12 +115,14 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        profitPrice = Calculate.GetProfitPrice(minCandles);
-                        stopLossPrice = Calculate.GetStopLossPrice(minCandles);
+                        decimal baseLowerBand = bollingerBand.Basis - (bbDeviation * (bbCount[market] - 1));
+                        decimal stopLossLowerBand = bollingerBand.Basis - (bbDeviation * bbCount[market]);
+
+                        var profitPercent = ((baseLowerBand - stopLossLowerBand) / baseLowerBand) * 1.5m;
+                        profitPrice[market] = currPrice * (1 + profitPercent);
+                        stopLossPrice[market] = stopLossLowerBand;
 
                         totalBuyTrades++;
-
-                        waitBuyTime[market] = DateTime.Now; // 급락 때 연속 매수 방지
 
                         pendingBuyOrders[market] = (currPrice, DateTime.Now, "bid");
 
@@ -132,7 +134,7 @@ public partial class TradePage : ContentPage
                     }
                 }
             }
-            /* ---------------------------------------------------------------------*/
+            /* ---------------------------------------------------------------------
 
 
             /* ------------------------------- 매 도 -------------------------------*/
@@ -144,14 +146,10 @@ public partial class TradePage : ContentPage
                     MakeOrderMarketSell sellOrder = API.MakeOrderMarketSell(market, sellVolume);
                     if (sellOrder != null)
                     {
-                        stopLossPrice = 0;
-
-                        totalSellTrades++;
+                        profitPrice.Remove(market);
+                        stopLossPrice.Remove(market);
 
                         AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {((currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100):N3}%");
-
-                        trailingStopPrice.Remove(market);
-                        entryCondition.Remove(market);
 
                         pendingSellOrders[market] = (currPrice, DateTime.Now, "ask");
                     }
@@ -187,16 +185,12 @@ public partial class TradePage : ContentPage
 
                 if (API.CancelOrder(order.Uuid) != null)
                 {
-                    trailingStopPrice.Remove(market);
-                    entryCondition.Remove(market);
-
-                    if (orderSide == OrderSide.bid.ToString())
+                    if (!isHaveMarket)
                     {
-                        totalBuyTrades--;
-                    }
-                    else
-                    {
-                        totalSellTrades--;
+                        if (orderSide == OrderSide.bid.ToString())
+                        {
+                            totalBuyTrades--;
+                        }
                     }
 
                     AddChatMessage($"🚫 미체결 {(orderSide == OrderSide.bid.ToString() ? "매수" : "매도")} 취소: {market} | 가격: {order.Price:N2}");

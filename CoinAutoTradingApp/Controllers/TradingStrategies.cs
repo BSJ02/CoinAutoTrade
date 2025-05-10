@@ -13,8 +13,11 @@ using System.Threading.Tasks;
 namespace CoinAutoTradingApp;
 public partial class TradePage : ContentPage
 {
+    string buyCondition = "";
+
     // 매수 조건
     public bool IsBuyConditionOne(decimal currPrice,
+                                  decimal bbBasis, decimal bbDeviation,
                                   List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
@@ -22,33 +25,40 @@ public partial class TradePage : ContentPage
         if (pendingBuyOrders.ContainsKey(market) && isHaveMarket)
             return false;
 
-        var currCandle = minCandles[0];
-        var prevCandle = minCandles[1];
+        // 0: 유동성 확인
+        var upperBand = bbBasis + bbDeviation * 3;
+        var lowerBand = bbBasis - bbDeviation * 3;
+        var bandGapPercent = (upperBand - lowerBand) / upperBand;
+        if (bandGapPercent < 0.013m)
+            return false;
 
-        // 0: 매매가 설정
-        bool isTradePrice = currCandle.TradePrice <= currCandle.OpeningPrice &&
-                            currCandle.TradePrice >= prevCandle.TradePrice;
+        bbCount[market] = 3;
 
-        // 1: 하락 추세 반전
-        decimal candleLowHighPriceGap = prevCandle.HighPrice - prevCandle.LowPrice;
-        bool isDowntrendReversing = prevCandle.LowPrice <= minCandles.Skip(2).Take(5).Min(c => c.LowPrice) &&
-                                    prevCandle.TradePrice >= prevCandle.LowPrice + candleLowHighPriceGap * 0.8m &&
-                                    prevCandle.OpeningPrice >= prevCandle.LowPrice + candleLowHighPriceGap * 0.8m;
+        decimal bbLowerBand = 0;
+        while (true)
+        {
+            bbLowerBand = bbBasis - bbDeviation * bbCount[market];
 
-        // 2: BullishEngulfingCandle
-        bool isBullishEngulfingCandle = Calculate.IsBullishEngulfingCandle(minCandles);
+            if (currPrice <= bbLowerBand)
+            {
+                bbCount[market]++;
+            }
+            else
+            {
+                break;
+            }
+        }
 
-        // 3: 모닝스타 캔들 패턴
-        bool isMorningStarCandle = minCandles[3].OpeningPrice > minCandles[3].TradePrice &&
-                                   Calculate.IsDojiCandle(minCandles[2]) &&
-                                   minCandles[1].TradePrice > minCandles[3].TradePrice;
+        if (bbCount[market] == 3)
+        {
+            return false;
+        }
 
-        return isTradePrice &&
-               (
-                   isDowntrendReversing ||
-                   isBullishEngulfingCandle ||
-                   isMorningStarCandle
-               );
+        buyCondition = "BB 하단 터치";
+
+        return currPrice <= bbLowerBand + bbDeviation &&
+               currPrice > bbLowerBand &&
+               minCandles[0].LowPrice != minCandles[0].TradePrice;
     }
 
     public bool ShouldTakeProfit(decimal currPrice, decimal avgPrice,
@@ -58,13 +68,7 @@ public partial class TradePage : ContentPage
         if (!isHaveMarket)
             return false;
 
-        trailingStopPrice[market] = trailingStopPrice.ContainsKey(market) ? Math.Max(currPrice, trailingStopPrice[market]) : currPrice;
-
-        if (currPrice < avgPrice * (1 + FeeRate * 6))
-            return false;
-
-        return currPrice >= profitPrice ||
-               currPrice <= trailingStopPrice[market] * 0.998m;
+        return currPrice >= profitPrice[market];
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,
@@ -74,14 +78,15 @@ public partial class TradePage : ContentPage
         if (!isHaveMarket)
             return false;
 
-        return currPrice < stopLossPrice;
+        return currPrice < stopLossPrice[market];
     }
 
-    public TradeType EvaluateTradeConditions(decimal currPrice, decimal avgPrice,
+    public TradeType EvaluateTradeConditions(decimal currPrice, decimal avgPrice, 
+                                             BollingerBand bollingerBand, decimal bbDeviation,
                                              List<CandleMinute> minCandles, bool isKRWHeld)
     {
         // (매수)
-        bool isBuyConditionOne = IsBuyConditionOne(currPrice, minCandles) && isKRWHeld;
+        bool isBuyConditionOne = IsBuyConditionOne(currPrice, bollingerBand.Basis, bbDeviation, minCandles) && isKRWHeld;
 
         // 익절 (매도)
         bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, minCandles);
@@ -93,27 +98,19 @@ public partial class TradePage : ContentPage
         // 매도
         if (isStopLoss)
         {
+            buyCondition = "";
             return ExecuteSellOrder("손절"); // 손절 매도
         }
         else if (isTakeProfit)
         {
+            buyCondition = "";
             return ExecuteSellOrder("익절"); // 익절 매도
         }
 
         // 매수
-        if (waitBuyTime.ContainsKey(market))
+        if (isBuyConditionOne)
         {
-            if ((DateTime.Now - waitBuyTime[market]).TotalSeconds > 120)
-            {
-                waitBuyTime.Remove(market);
-            }
-        }
-        else
-        {
-            if (isBuyConditionOne)
-            {
-                return ExecuteBuyOrder("매수"); // 매수
-            }
+            return ExecuteBuyOrder($"{buyCondition}"); // 매수
         }
 
         return TradeType.None;
