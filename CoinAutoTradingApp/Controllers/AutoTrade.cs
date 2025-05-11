@@ -63,7 +63,14 @@ public partial class TradePage : ContentPage
     // 📌 자동 매매 로직
     public void Trade()
     {
-        foreach (var market in selectedMarkets)
+        List<string> marketsSnapshot;
+
+        lock (marketLock)
+        {
+            marketsSnapshot = new List<string>(selectedMarkets);
+        }
+
+        foreach (var market in marketsSnapshot)
         {
             var minCandles = API.GetCandles(market, (CandleUnit)3, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
             if (minCandles == null || minCandles.Count < 200)
@@ -115,12 +122,17 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        decimal baseLowerBand = bollingerBand.Basis - (bbDeviation * (bbCount[market] - 1));
-                        decimal stopLossLowerBand = bollingerBand.Basis - (bbDeviation * bbCount[market]);
+                        #region BollingerBand 매매
+                        //decimal baseLowerBand = bollingerBand.Basis - (bbDeviation * (bbCount[market] - 1));
+                        //decimal stopLossLowerBand = bollingerBand.Basis - (bbDeviation * bbCount[market]);
 
-                        var profitPercent = ((baseLowerBand - stopLossLowerBand) / baseLowerBand) * 1.5m;
-                        profitPrice[market] = currPrice * (1 + profitPercent);
-                        stopLossPrice[market] = stopLossLowerBand;
+                        //var profitPercent = ((baseLowerBand - stopLossLowerBand) / baseLowerBand) * (bbCount[market] * 0.4m);
+                        //profitPrice[market] = currPrice * (1 + profitPercent);
+                        //stopLossPrice[market] = stopLossLowerBand;
+                        #endregion
+
+                        profitPrice[market] = bollingerBand.Basis + bbDeviation * 2;
+                        stopLossPrice[market] = avgPrice - bbDeviation;
 
                         totalBuyTrades++;
 

@@ -20,10 +20,13 @@ public partial class TradePage : ContentPage
             return;
         }
 
-        selectedMarkets = coinList.Split(',')
-                          .Select(m => m.Trim())
-                          .Where(m => !string.IsNullOrEmpty(m))
-                          .ToList();
+        lock (marketLock)
+        {
+            selectedMarkets = coinList.Split(',')
+                  .Select(m => m.Trim())
+                  .Where(m => !string.IsNullOrEmpty(m))
+                  .ToList();
+        }
 
         if (selectedMarkets.Count == 0)
         {
@@ -31,10 +34,10 @@ public partial class TradePage : ContentPage
             return;
         }
 
-        AddChatMessage($"✅ 자동 매매 대상 코인 설정: {string.Join(", ", selectedMarkets)}");
+        AddDebugMessage($"✅ 자동 매매 대상 코인 설정: {string.Join(", ", selectedMarkets)}");
     }
 
-    public void SetTop10MarketsByVolume()
+    public void SetTopMarketsByVolume()
     {
         var markets = API.GetMarketAll();
 
@@ -49,7 +52,6 @@ public partial class TradePage : ContentPage
                 Volume = ticker.AccTradePrice24h
             })
             .OrderByDescending(market => market.Volume) // 거래대금 내림차순 정렬
-            .Take(15) // 상위 마켓 선택
             .ToList();
 
         var validMarkets = new List<string>();
@@ -64,9 +66,6 @@ public partial class TradePage : ContentPage
             {
                 validMarkets.Add(marketData.Market);
             }
-
-            if (validMarkets.Count == 8)
-                break;
         }
 
         var selectedMarketsString = string.Join(", ", validMarkets);

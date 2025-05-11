@@ -26,39 +26,56 @@ public partial class TradePage : ContentPage
             return false;
 
         // 0: 유동성 확인
-        var upperBand = bbBasis + bbDeviation * 3;
-        var lowerBand = bbBasis - bbDeviation * 3;
+        var upperBand = bbBasis + bbDeviation * 2;
+        var lowerBand = bbBasis - bbDeviation * 2;
         var bandGapPercent = (upperBand - lowerBand) / upperBand;
         if (bandGapPercent < 0.013m)
             return false;
 
-        bbCount[market] = 3;
+        var ema10 = Calculate.EMAHistory(minCandles, 10);
+        var ema34 = Calculate.EMAHistory(minCandles, 34);
 
-        decimal bbLowerBand = 0;
-        while (true)
-        {
-            bbLowerBand = bbBasis - bbDeviation * bbCount[market];
-
-            if (currPrice <= bbLowerBand)
-            {
-                bbCount[market]++;
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        if (bbCount[market] == 3)
-        {
+        if (ema10[0] < ema10[1] || ema10[0] > ema34[0])
             return false;
-        }
 
-        buyCondition = "BB 하단 터치";
+        if (Math.Abs(ema34[0] - ema10[0]) / ema34[0] > 0.001m)
+            return false;
 
-        return currPrice <= bbLowerBand + bbDeviation &&
-               currPrice > bbLowerBand &&
-               minCandles[0].LowPrice != minCandles[0].TradePrice;
+        if (minCandles[0].OpeningPrice > ema34[0] * 1.0005m)
+            return false;
+
+        return currPrice > ema34[0] &&
+               currPrice <= ema34[0] * 1.0005m;
+
+        #region BollingerBand 매매
+        //bbCount[market] = 3;
+
+        //decimal bbLowerBand = 0;
+        //while (true)
+        //{
+        //    bbLowerBand = bbBasis - bbDeviation * bbCount[market];
+
+        //    if (minCandles[0].LowPrice <= bbLowerBand)
+        //    {
+        //        bbCount[market]++;
+        //    }
+        //    else
+        //    {
+        //        break;
+        //    }
+        //}
+
+        //if (bbCount[market] == 3)
+        //{
+        //    return false;
+        //}
+
+        //buyCondition = $"BB{bbCount[market]} 하단 터치";
+
+        //return currPrice <= bbLowerBand + bbDeviation &&
+        //       currPrice > bbLowerBand &&
+        //       minCandles[0].LowPrice != minCandles[0].TradePrice;
+        #endregion
     }
 
     public bool ShouldTakeProfit(decimal currPrice, decimal avgPrice,
@@ -68,7 +85,7 @@ public partial class TradePage : ContentPage
         if (!isHaveMarket)
             return false;
 
-        return currPrice >= profitPrice[market];
+        return currPrice >= profitPrice[market] && minCandles[0].HighPrice != minCandles[0].TradePrice;
     }
 
     public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,

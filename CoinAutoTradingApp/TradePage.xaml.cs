@@ -16,6 +16,10 @@ public partial class TradePage : ContentPage
     private DateTime debugMessageResetTime;
     private int resetTimeLimit;
 
+    private DateTime lastMarketUpdateTime;
+
+    private readonly object marketLock = new();
+
     public TradePage(APIClass api)
     {
         InitializeComponent();
@@ -37,12 +41,14 @@ public partial class TradePage : ContentPage
 
         debugMessageResetTime = DateTime.Now;
         resetTimeLimit = 120;
+
+        lastMarketUpdateTime = DateTime.Now;
     }
 
     // 자동 매매 시작 함수
     private void StartTrading(object sender, EventArgs e)
     {
-        SetTop10MarketsByVolume();
+        SetTopMarketsByVolume();
         if (selectedMarkets == null || selectedMarkets.Count == 0)
         {
             AddDebugMessage("⚠️ 선택된 코인이 없음. 자동 매매 실행 불가.");
@@ -62,16 +68,41 @@ public partial class TradePage : ContentPage
             {
                 try
                 {
+                    if ((DateTime.Now - lastMarketUpdateTime).TotalHours >= 1)
+                    {
+                        List<string> marketsSnapshot;
+
+                        lock (marketLock)
+                        {
+                            marketsSnapshot = new List<string>(selectedMarkets);
+                        }
+
+                        int haveCount = 0;
+                        foreach (var market in marketsSnapshot)
+                        {
+                            if (API.IsHaveMarket(market))
+                            {
+                                haveCount++;
+                            }
+                        }
+
+                        if (haveCount == 0)
+                        {
+                            SetTopMarketsByVolume();
+                            lastMarketUpdateTime = DateTime.Now;
+                            AddDebugMessage("🔄 거래량 상위 코인 갱신");
+                        }
+                    }
+
                     Trade();
-                    AddDebugMessage($"⏳ 자동 매매 실행 중... {DateTime.Now:HH:mm:ss}");
+                    AddDebugMessage($"⏳ 자동 매매 실행 중...");
                 }
                 catch (Exception ex)
                 {
-                    AddDebugMessage($"❌ 자동 매매 중 오류 발생: {ex.Message}");
+                    AddDebugMessage($"❌ 자동 매매 오류 발생: {ex.Message}");
                 }
 
                 await Task.Delay(500);
-
 
                 if ((DateTime.Now - debugMessageResetTime).TotalSeconds > resetTimeLimit)
                 {
@@ -93,7 +124,9 @@ public partial class TradePage : ContentPage
             tradeLoopTokenSource = null;
             AddChatMessage("🛑 자동 매매 중지됨.");
             AddChatMessage($"매수: {totalBuyTrades}회");
-            AddChatMessage($"시간: {(int)(tradEndTime - tradStartTime).TotalMinutes}분 : {(decimal)API.GetKRW().totalKRW - startKRW:C2}");
+
+            var endKRW = (decimal)API.GetKRW().totalKRW;
+            AddChatMessage($"시간: {(int)(tradEndTime - tradStartTime).TotalMinutes}분 : {(endKRW - startKRW) / endKRW * 100:N2}% ({endKRW - startKRW:C2})");
         }
     }
 }
