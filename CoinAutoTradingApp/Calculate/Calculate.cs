@@ -80,7 +80,6 @@ namespace CoinAutoTradingApp.Utilities
                 decimal prevClose = candles[i + 1].TradePrice;
 
                 decimal tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
-
                 atr = (atr * (period - 1) + tr) / period;
             }
 
