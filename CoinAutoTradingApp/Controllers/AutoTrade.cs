@@ -29,12 +29,14 @@ public partial class TradePage : ContentPage
 
     private int totalBuyTrades = 0;
 
-    private Dictionary<string, decimal> profitPrice;
-    private Dictionary<string, decimal> stopLossPrice;
+    private Dictionary<string, EntryCondition> entryCondition;
+
+    private Dictionary<string, bool> takeProfitCondition;
+    private Dictionary<string, bool> stopLossCondition;
 
     private const decimal FeeRate = 0.0005m;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
-    private const decimal TradeKRW = 250000;   // 매매 시 최대 금액
+    private const decimal TradeKRW = 500000;   // 매매 시 최대 금액
 
     private bool isHaveMarket = false;
 
@@ -72,7 +74,7 @@ public partial class TradePage : ContentPage
 
         foreach (var market in marketsSnapshot)
         {
-            var minCandles = API.GetCandles(market, (CandleUnit)3, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
+            var minCandles = API.GetCandles(market, (CandleUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
             if (minCandles == null || minCandles.Count < 200)
             {
                 AddDebugMessage($"⚠️ {market} 캔들 데이터 부족");
@@ -87,13 +89,19 @@ public partial class TradePage : ContentPage
 
             decimal currPrice = minCandles[0].TradePrice;
             decimal avgPrice = 0;
-            if (API.GetAccount(market) != null)
+            var currMarket = API.GetAccount(market);
+            if (currMarket != null)
             {
-                avgPrice = API.GetAccount(market).AvgBuyPrice;
+                avgPrice = currMarket.AvgBuyPrice;
             }
 
             BollingerBand bollingerBand = Calculate.BollingerBand(minCandles, 20, 1);
             decimal bbDeviation = bollingerBand.UpperBand - bollingerBand.Basis;
+
+            var ema7 = Calculate.EMAHistory(minCandles, 7);
+            var ema28 = Calculate.EMAHistory(minCandles, 28);
+            var ema56 = Calculate.EMAHistory(minCandles, 56);
+            var ema112 = Calculate.EMAHistory(minCandles, 112);
 
             // 미체결 주문 취소
             CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());
@@ -105,9 +113,27 @@ public partial class TradePage : ContentPage
             var tradeType = EvaluateTradeConditions(
                 currPrice, avgPrice,
                 bollingerBand, bbDeviation,
+                ema7, ema28, ema56, ema112,
                 minCandles,
                 availableKRW >= TradeKRW && isBuyCondition
             );
+
+            if (entryCondition.ContainsKey(market))
+            {
+                switch(entryCondition[market])
+                {
+                    case EntryCondition.EMAOrdered:
+                        takeProfitCondition[market] = currPrice >= bollingerBand.Basis + bbDeviation;
+                        break;
+                    case EntryCondition.EMAReversed:
+                        takeProfitCondition[market] = currPrice >= bollingerBand.Basis + bbDeviation * 3 ||
+                                                      ema7[0] < ema28[0];
+                        break;
+                    default:
+                        break;
+                }
+                stopLossCondition[market] = avgPrice != 0 && (currPrice < avgPrice - bbDeviation);
+            }
 
             /* ------------------------------- 매 수 -------------------------------*/
             if (TradeType.Buy.Equals(tradeType))
@@ -115,25 +141,13 @@ public partial class TradePage : ContentPage
                 decimal tradeKRW = availableKRW > TradeKRW ? TradeKRW : availableKRW;
                 decimal buyQuantity = ((decimal)tradeKRW * (1 - FeeRate)) / currPrice;
 
-                if (currPrice * buyQuantity <= TradeKRW && isBuyCondition)
+                if (currPrice * buyQuantity <= tradeKRW && isBuyCondition)
                 {
                     double haveBalance = API.GetBalance(market);
 
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
-                        #region BollingerBand 매매
-                        //decimal baseLowerBand = bollingerBand.Basis - (bbDeviation * (bbCount[market] - 1));
-                        //decimal stopLossLowerBand = bollingerBand.Basis - (bbDeviation * bbCount[market]);
-
-                        //var profitPercent = ((baseLowerBand - stopLossLowerBand) / baseLowerBand) * (bbCount[market] * 0.4m);
-                        //profitPrice[market] = currPrice * (1 + profitPercent);
-                        //stopLossPrice[market] = stopLossLowerBand;
-                        #endregion
-
-                        profitPrice[market] = bollingerBand.Basis + bbDeviation * 2;
-                        stopLossPrice[market] = avgPrice - bbDeviation;
-
                         totalBuyTrades++;
 
                         pendingBuyOrders[market] = (currPrice, DateTime.Now, "bid");
@@ -158,8 +172,10 @@ public partial class TradePage : ContentPage
                     MakeOrderMarketSell sellOrder = API.MakeOrderMarketSell(market, sellVolume);
                     if (sellOrder != null)
                     {
-                        profitPrice.Remove(market);
-                        stopLossPrice.Remove(market);
+                        entryCondition.Remove(market);
+
+                        takeProfitCondition.Remove(market);
+                        stopLossCondition.Remove(market);
 
                         AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {((currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100):N3}%");
 

@@ -3,16 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|c:\\users\\user\\desktop\\coinautotradingapp\\coinautotradingapp\\controllers\\autotrade.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|solutionrelative:coinautotradingapp\\controllers\\autotrade.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|c:\\users\\user\\desktop\\coinautotradingapp\\coinautotradingapp\\controllers\\gettopcoins.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|solutionrelative:coinautotradingapp\\controllers\\gettopcoins.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|c:\\users\\user\\desktop\\coinautotradingapp\\coinautotradingapp\\controllers\\tradingstrategies.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|solutionrelative:coinautotradingapp\\controllers\\tradingstrategies.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|c:\\users\\user\\desktop\\coinautotradingapp\\coinautotradingapp\\controllers\\autotrade.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|solutionrelative:coinautotradingapp\\controllers\\autotrade.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|c:\\users\\user\\desktop\\coinautotradingapp\\coinautotradingapp\\tradepage.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -23,8 +19,12 @@
       "RelativeMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|solutionrelative:coinautotradingapp\\calculate\\calculate.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|c:\\users\\user\\desktop\\coinautotradingapp\\coinautotradingapp\\upbitapi\\apiclass.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|solutionrelative:coinautotradingapp\\upbitapi\\apiclass.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|c:\\users\\user\\desktop\\coinautotradingapp\\coinautotradingapp\\controllers\\gettopcoins.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|solutionrelative:coinautotradingapp\\controllers\\gettopcoins.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|c:\\users\\user\\desktop\\coinautotradingapp\\coinautotradingapp\\enum\\tradetype.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{56EF1C0F-8BF7-4617-9C4F-4683F30B5D6D}|CoinAutoTradingApp\\CoinAutoTradingApp.csproj|solutionrelative:coinautotradingapp\\enum\\tradetype.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -34,79 +34,78 @@
       "DocumentGroups": [
         {
           "DockedWidth": 1457,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "GetTopCoins.cs",
-              "DocumentMoniker": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Controllers\\GetTopCoins.cs",
-              "RelativeDocumentMoniker": "CoinAutoTradingApp\\Controllers\\GetTopCoins.cs",
-              "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Controllers\\GetTopCoins.cs",
-              "RelativeToolTip": "CoinAutoTradingApp\\Controllers\\GetTopCoins.cs",
-              "ViewState": "AgIAAAgAAAAAAAAAAAD4vyYAAAAAAAAAAAAAAA==",
+              "DocumentIndex": 3,
+              "Title": "Calculate.cs",
+              "DocumentMoniker": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Calculate\\Calculate.cs",
+              "RelativeDocumentMoniker": "CoinAutoTradingApp\\Calculate\\Calculate.cs",
+              "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Calculate\\Calculate.cs",
+              "RelativeToolTip": "CoinAutoTradingApp\\Calculate\\Calculate.cs",
+              "ViewState": "AgIAAP0BAAAAAAAAAAAcwAgCAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-05-10T16:22:09.011Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-12T14:25:22.637Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 2,
               "Title": "TradePage.xaml.cs",
               "DocumentMoniker": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\TradePage.xaml.cs",
               "RelativeDocumentMoniker": "CoinAutoTradingApp\\TradePage.xaml.cs",
               "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\TradePage.xaml.cs",
               "RelativeToolTip": "CoinAutoTradingApp\\TradePage.xaml.cs",
-              "ViewState": "AgIAAEMAAAAAAAAAAAAWwFoAAAAxAAAAAAAAAA==",
+              "ViewState": "AgIAABgAAAAAAAAAAAAWwCkAAAAcAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-05-10T15:59:05.075Z"
+              "WhenOpened": "2025-05-12T13:44:18.653Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 5,
+              "Title": "TradeType.cs",
+              "DocumentMoniker": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Enum\\TradeType.cs",
+              "RelativeDocumentMoniker": "CoinAutoTradingApp\\Enum\\TradeType.cs",
+              "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Enum\\TradeType.cs",
+              "RelativeToolTip": "CoinAutoTradingApp\\Enum\\TradeType.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA8AAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-12T13:42:22.287Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "GetTopCoins.cs",
+              "DocumentMoniker": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Controllers\\GetTopCoins.cs",
+              "RelativeDocumentMoniker": "CoinAutoTradingApp\\Controllers\\GetTopCoins.cs",
+              "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Controllers\\GetTopCoins.cs",
+              "RelativeToolTip": "CoinAutoTradingApp\\Controllers\\GetTopCoins.cs",
+              "ViewState": "AgIAACoAAAAAAAAAAAAowDwAAABJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-11T15:52:41.03Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
               "Title": "AutoTrade.cs",
               "DocumentMoniker": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Controllers\\AutoTrade.cs",
               "RelativeDocumentMoniker": "CoinAutoTradingApp\\Controllers\\AutoTrade.cs",
               "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Controllers\\AutoTrade.cs",
               "RelativeToolTip": "CoinAutoTradingApp\\Controllers\\AutoTrade.cs",
-              "ViewState": "AgIAAGwAAAAAAAAAAAAowIsAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAGkAAAAAAAAAAAAUwG8AAAARAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-05-06T16:48:54.69Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "APIClass.cs",
-              "DocumentMoniker": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\UpbitAPI\\APIClass.cs",
-              "RelativeDocumentMoniker": "CoinAutoTradingApp\\UpbitAPI\\APIClass.cs",
-              "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\UpbitAPI\\APIClass.cs",
-              "RelativeToolTip": "CoinAutoTradingApp\\UpbitAPI\\APIClass.cs",
-              "ViewState": "AgIAAIkBAAAAAAAAAAAkwJkBAAAaAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-05-08T10:00:34.087Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "Calculate.cs",
-              "DocumentMoniker": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Calculate\\Calculate.cs",
-              "RelativeDocumentMoniker": "CoinAutoTradingApp\\Calculate\\Calculate.cs",
-              "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Calculate\\Calculate.cs",
-              "RelativeToolTip": "CoinAutoTradingApp\\Calculate\\Calculate.cs",
-              "ViewState": "AgIAABEAAAAAAAAAAAAQwCIAAAAxAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-05-06T16:50:44.104Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "TradingStrategies.cs",
               "DocumentMoniker": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Controllers\\TradingStrategies.cs",
               "RelativeDocumentMoniker": "CoinAutoTradingApp\\Controllers\\TradingStrategies.cs",
               "ToolTip": "C:\\Users\\USER\\Desktop\\CoinAutoTradingApp\\CoinAutoTradingApp\\Controllers\\TradingStrategies.cs",
               "RelativeToolTip": "CoinAutoTradingApp\\Controllers\\TradingStrategies.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAACoAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAACsAAAAAAAAAAAAAAEAAAAB2AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-05-06T15:04:46.901Z",
               "EditorCaption": ""

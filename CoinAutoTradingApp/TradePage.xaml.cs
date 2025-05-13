@@ -36,8 +36,10 @@ public partial class TradePage : ContentPage
 
         bbCount = new Dictionary<string, int>();
 
-        profitPrice = new Dictionary<string, decimal>();
-        stopLossPrice = new Dictionary<string, decimal>();
+        entryCondition = new Dictionary<string, EntryCondition>();
+
+        takeProfitCondition = new Dictionary<string, bool>();
+        stopLossCondition = new Dictionary<string, bool>();
 
         debugMessageResetTime = DateTime.Now;
         resetTimeLimit = 120;
@@ -48,6 +50,8 @@ public partial class TradePage : ContentPage
     // 자동 매매 시작 함수
     private void StartTrading(object sender, EventArgs e)
     {
+        AddChatMessage("📊 거래 시작");
+
         SetTopMarketsByVolume();
         if (selectedMarkets == null || selectedMarkets.Count == 0)
         {

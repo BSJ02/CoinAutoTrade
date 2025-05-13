@@ -13,40 +13,44 @@ namespace CoinAutoTradingApp.Utilities
     public class Calculate
     {
         // RSI
-        public static double RSI(List<CandleMinute> candles, int period = 14)
+        public static decimal RSI(List<CandleMinute> candles, int period = 14)
         {
-            if (candles == null || candles.Count <= period)
-                throw new ArgumentException("캔들 개수가 부족합니다.");
+            if (candles == null || candles.Count < period + 1)
+                return 0;
 
-            var changes = new List<decimal>();
-            for (int i = 0; i < candles.Count - 1; i++)
+            var reversed = candles.ToList();
+            reversed.Reverse(); // 과거 → 현재
+
+            decimal gain = 0;
+            decimal loss = 0;
+
+            // 1. 초기 평균 계산 (period 구간)
+            for (int i = 1; i <= period; i++)
             {
-                decimal change = candles[i].TradePrice - candles[i + 1].TradePrice;
-                changes.Add(change);
+                var diff = reversed[i].TradePrice - reversed[i - 1].TradePrice;
+                if (diff > 0) gain += diff;
+                else loss -= diff;
             }
 
-            var gains = changes.Select(c => c > 0 ? c : 0).ToList();
-            var losses = changes.Select(c => c < 0 ? Math.Abs(c) : 0).ToList();
+            decimal avgGain = gain / period;
+            decimal avgLoss = loss / period;
 
-            // gains, losses는 period + N개니까 앞에서 period개만 EMA 계산용으로 사용
-            var gainCandles = gains.Select(g => new CandleMinute { TradePrice = g }).ToList();
-            var lossCandles = losses.Select(l => new CandleMinute { TradePrice = l }).ToList();
+            // 2. 현재 RSI만 계산 (가장 최신 봉 기준)
+            for (int i = period + 1; i < reversed.Count; i++)
+            {
+                var diff = reversed[i].TradePrice - reversed[i - 1].TradePrice;
+                decimal currentGain = diff > 0 ? diff : 0;
+                decimal currentLoss = diff < 0 ? -diff : 0;
 
-            var emaGains = EMAHistory(gainCandles, period);
-            var emaLosses = EMAHistory(lossCandles, period);
+                avgGain = (avgGain * (period - 1) + currentGain) / period;
+                avgLoss = (avgLoss * (period - 1) + currentLoss) / period;
+            }
 
-            if (emaGains.Count == 0 || emaLosses.Count == 0)
-                throw new InvalidOperationException("EMA 계산 결과가 없습니다.");
-
-            var avgGain = emaGains[0];  // 가장 최신
-            var avgLoss = emaLosses[0];
-
-            if (avgLoss == 0)
-                return 100;
+            if (avgLoss == 0) return 100;
+            if (avgGain == 0) return 0;
 
             decimal rs = avgGain / avgLoss;
-            decimal rsi = 100 - (100 / (1 + rs));
-            return (double)Math.Round(rsi, 2);
+            return 100 - (100 / (1 + rs));
         }
 
 
@@ -515,5 +519,21 @@ namespace CoinAutoTradingApp.Utilities
                 : levelCounts.OrderByDescending(k => k.Key).Select(k => k.Key).ToList();
         }
 
+
+        private double Slope(List<decimal> ema, int timeDifference = 1, int startTime = 0)
+        {
+            // x1, x2는 시간 인덱스, y1, y2는 이동평균 값
+            decimal currEMA = ema[startTime];
+            decimal prevEMA = ema[startTime + timeDifference];
+            decimal emaChangeRatio = (currEMA - prevEMA) / prevEMA;  // 가격 변화율
+
+            decimal slope = emaChangeRatio * 100;  // 기울기 계산
+
+            // 기울기를 각도로 변환 (탄젠트에서 각도로 변환)
+            double angleInRadians = Math.Atan((double)slope);  // 기울기를 아크탄젠트로 변환 (라디안)
+            double angleInDegrees = angleInRadians * (180 / Math.PI);  // 라디안을 각도로 변환
+
+            return angleInDegrees;
+        }
     }
 }

@@ -18,6 +18,7 @@ public partial class TradePage : ContentPage
     // 매수 조건
     public bool IsBuyConditionOne(decimal currPrice,
                                   decimal bbBasis, decimal bbDeviation,
+                                  List<decimal> ema7, List<decimal> ema28, List<decimal> ema56, List<decimal> ema112,
                                   List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
@@ -26,89 +27,85 @@ public partial class TradePage : ContentPage
             return false;
 
         // 0: 유동성 확인
-        var upperBand = bbBasis + bbDeviation * 2;
-        var lowerBand = bbBasis - bbDeviation * 2;
+        var upperBand = bbBasis + bbDeviation;
+        var lowerBand = bbBasis - bbDeviation;
         var bandGapPercent = (upperBand - lowerBand) / upperBand;
-        if (bandGapPercent < 0.013m)
+        if (bandGapPercent < 0.01m)
             return false;
 
-        var ema10 = Calculate.EMAHistory(minCandles, 10);
-        var ema34 = Calculate.EMAHistory(minCandles, 34);
+        var currEMA7 = ema7[0];
+        var currEMA28 = ema28[0];
+        var currEMA56 = ema56[0];
+        var currEMA112 = ema112[0];
 
-        if (ema10[0] < ema10[1] || ema10[0] > ema34[0])
-            return false;
+        var prevEMA7 = ema7[1];
+        var prevEMA28 = ema28[1];
+        var prevEMA56 = ema56[1];
+        var prevEMA112 = ema112[1];
 
-        if (Math.Abs(ema34[0] - ema10[0]) / ema34[0] > 0.001m)
-            return false;
+        bool isEMAOrdered = prevEMA7 > prevEMA28 && prevEMA28 > prevEMA56 && prevEMA56 > prevEMA112;    // EMA 정배열
+        bool isEMAReversed = prevEMA112 > prevEMA56 && (prevEMA56 > prevEMA28 || Math.Abs(prevEMA56 - prevEMA28) / prevEMA56 <= 0.0005m);   // EMA 역배열
 
-        if (minCandles[0].OpeningPrice > ema34[0] * 1.0005m)
-            return false;
+        if (isEMAOrdered)
+        {
+            bool isEntryPrice = currPrice < currEMA56 * 1.0005m &&
+                                minCandles[0].LowPrice > currEMA56 - bbDeviation;
 
-        return currPrice > ema34[0] &&
-               currPrice <= ema34[0] * 1.0005m;
+            if (isEntryPrice)
+            {
+                entryCondition[market] = EntryCondition.EMAOrdered;
+                buyCondition = "정배열";
 
-        #region BollingerBand 매매
-        //bbCount[market] = 3;
+                return true;
+            }
+        }
+        else if (isEMAReversed)
+        {
+            bool isGoldenCross = currEMA7 > currEMA112;
+            bool isEntryPrice = currPrice < currEMA112 * 1.0005m && minCandles[0].LowPrice != minCandles[0].TradePrice;
 
-        //decimal bbLowerBand = 0;
-        //while (true)
-        //{
-        //    bbLowerBand = bbBasis - bbDeviation * bbCount[market];
+            if (isGoldenCross && isEntryPrice)
+            {
+                entryCondition[market] = EntryCondition.EMAReversed;
+                buyCondition = "역배열";
 
-        //    if (minCandles[0].LowPrice <= bbLowerBand)
-        //    {
-        //        bbCount[market]++;
-        //    }
-        //    else
-        //    {
-        //        break;
-        //    }
-        //}
+                return true;
+            }
+        }
 
-        //if (bbCount[market] == 3)
-        //{
-        //    return false;
-        //}
-
-        //buyCondition = $"BB{bbCount[market]} 하단 터치";
-
-        //return currPrice <= bbLowerBand + bbDeviation &&
-        //       currPrice > bbLowerBand &&
-        //       minCandles[0].LowPrice != minCandles[0].TradePrice;
-        #endregion
+        return false;
     }
 
-    public bool ShouldTakeProfit(decimal currPrice, decimal avgPrice,
-                                 List<CandleMinute> minCandles)
+    public bool ShouldTakeProfit(List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
         if (!isHaveMarket)
             return false;
 
-        return currPrice >= profitPrice[market] && minCandles[0].HighPrice != minCandles[0].TradePrice;
+        return takeProfitCondition.ContainsKey(market) ? takeProfitCondition[market] : false;
     }
 
-    public bool ShouldStopLoss(decimal currPrice, decimal avgPrice,
-                               List<CandleMinute> minCandles)
+    public bool ShouldStopLoss(List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
         if (!isHaveMarket)
             return false;
 
-        return currPrice < stopLossPrice[market];
+        return stopLossCondition.ContainsKey(market) ? stopLossCondition[market] : false;
     }
 
-    public TradeType EvaluateTradeConditions(decimal currPrice, decimal avgPrice, 
+    public TradeType EvaluateTradeConditions(decimal currPrice, decimal avgPrice,
                                              BollingerBand bollingerBand, decimal bbDeviation,
+                                             List<decimal> ema7, List<decimal> ema28, List<decimal> ema56, List<decimal> ema112,
                                              List<CandleMinute> minCandles, bool isKRWHeld)
     {
         // (매수)
-        bool isBuyConditionOne = IsBuyConditionOne(currPrice, bollingerBand.Basis, bbDeviation, minCandles) && isKRWHeld;
+        bool isBuyConditionOne = IsBuyConditionOne(currPrice, bollingerBand.Basis, bbDeviation, ema7, ema28, ema56, ema112, minCandles) && isKRWHeld;
 
         // 익절 (매도)
-        bool isTakeProfit = ShouldTakeProfit(currPrice, avgPrice, minCandles);
+        bool isTakeProfit = ShouldTakeProfit(minCandles);
         // 손절 (매도)
-        bool isStopLoss = ShouldStopLoss(currPrice, avgPrice, minCandles);
+        bool isStopLoss = ShouldStopLoss(minCandles);
         
         string market = minCandles[0].Market;
 
