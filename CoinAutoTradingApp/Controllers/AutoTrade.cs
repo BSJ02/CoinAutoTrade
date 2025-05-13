@@ -118,23 +118,6 @@ public partial class TradePage : ContentPage
                 availableKRW >= TradeKRW && isBuyCondition
             );
 
-            if (entryCondition.ContainsKey(market))
-            {
-                switch(entryCondition[market])
-                {
-                    case EntryCondition.EMAOrdered:
-                        takeProfitCondition[market] = currPrice >= bollingerBand.Basis + bbDeviation;
-                        break;
-                    case EntryCondition.EMAReversed:
-                        takeProfitCondition[market] = currPrice >= bollingerBand.Basis + bbDeviation * 3 ||
-                                                      ema7[0] < ema28[0];
-                        break;
-                    default:
-                        break;
-                }
-                stopLossCondition[market] = avgPrice != 0 && (currPrice < avgPrice - bbDeviation);
-            }
-
             /* ------------------------------- 매 수 -------------------------------*/
             if (TradeType.Buy.Equals(tradeType))
             {
@@ -188,9 +171,31 @@ public partial class TradePage : ContentPage
                 }
             }
             /* ---------------------------------------------------------------------*/
-        }
 
-        
+
+            // 손/익절 값
+            if (entryCondition.ContainsKey(market) && avgPrice != 0)
+            {
+                switch (entryCondition[market])
+                {
+                    case EntryCondition.EMAOrdered:
+                        takeProfitCondition[market] = currPrice >= avgPrice + bbDeviation * 1.5m &&
+                                                      currPrice != minCandles[0].HighPrice;
+                        break;
+                    case EntryCondition.EMATightOrdered:
+                        takeProfitCondition[market] = (currPrice != minCandles[0].HighPrice && currPrice >= bollingerBand.Basis + bbDeviation * 2.5m) ||
+                                                      ema7[0] < ema28[0];
+                        break;
+                    case EntryCondition.EMAReversed:
+                        takeProfitCondition[market] = (currPrice != minCandles[0].HighPrice && currPrice >= bollingerBand.Basis + bbDeviation * 2.5m) ||
+                                                      ema7[0] < ema28[0];
+                        break;
+                    default:
+                        break;
+                }
+                stopLossCondition[market] = currPrice < avgPrice - bbDeviation;
+            }
+        }
     }
 
     private void CancelPendingOrder(Dictionary<string, (decimal price, DateTime time, string side)> pendingOrders, string market, string orderSide)

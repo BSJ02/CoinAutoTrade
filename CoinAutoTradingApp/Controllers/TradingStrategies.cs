@@ -44,17 +44,42 @@ public partial class TradePage : ContentPage
         var prevEMA112 = ema112[1];
 
         bool isEMAOrdered = prevEMA7 > prevEMA28 && prevEMA28 > prevEMA56 && prevEMA56 > prevEMA112;    // EMA 정배열
+        bool isEMATightOrdered = isEMAOrdered &&
+                                 minCandles.Skip(1).Take(3).Average(c => Math.Abs(c.OpeningPrice - c.TradePrice)) * 1.2m >= Math.Abs(prevEMA28 - prevEMA112);
         bool isEMAReversed = prevEMA112 > prevEMA56 && (prevEMA56 > prevEMA28 || Math.Abs(prevEMA56 - prevEMA28) / prevEMA56 <= 0.0005m);   // EMA 역배열
 
         if (isEMAOrdered)
         {
-            bool isEntryPrice = currPrice < currEMA56 * 1.0005m &&
-                                minCandles[0].LowPrice > currEMA56 - bbDeviation;
+            bool isEntryPrice = false;
+            var currLowPrice = minCandles[0].LowPrice;
+            if (currPrice != currLowPrice)
+            { 
+                if (currLowPrice <= currEMA112)
+                {
+                    isEntryPrice = currPrice < currEMA112 * 1.0005m;
+                }
+                else if (currLowPrice <= currEMA56)
+                {
+                    isEntryPrice = currPrice < currEMA56 * 1.0005m;
+                }
+                else if (currPrice <= currEMA112)
+                {
+                    isEntryPrice = currPrice < currEMA112 * 1.0005m;
+                }
+            }
 
             if (isEntryPrice)
             {
-                entryCondition[market] = EntryCondition.EMAOrdered;
-                buyCondition = "정배열";
+                if (isEMATightOrdered)
+                {
+                    entryCondition[market] = EntryCondition.EMATightOrdered;
+                    buyCondition = "정배열(수렴)";
+                }
+                else
+                {
+                    entryCondition[market] = EntryCondition.EMAOrdered;
+                    buyCondition = "정배열";
+                }
 
                 return true;
             }
@@ -62,7 +87,7 @@ public partial class TradePage : ContentPage
         else if (isEMAReversed)
         {
             bool isGoldenCross = currEMA7 > currEMA112;
-            bool isEntryPrice = currPrice < currEMA112 * 1.0005m && minCandles[0].LowPrice != minCandles[0].TradePrice;
+            bool isEntryPrice = currPrice < currEMA112 * 1.0005m && currPrice != minCandles[0].LowPrice;
 
             if (isGoldenCross && isEntryPrice)
             {
