@@ -179,11 +179,11 @@ public partial class TradePage : ContentPage
                 switch (entryCondition[market])
                 {
                     case EntryCondition.EMAOrdered:
-                        takeProfitCondition[market] = currPrice >= avgPrice + bbDeviation * 1.5m &&
+                        takeProfitCondition[market] = currPrice >= avgPrice + bbDeviation &&
                                                       currPrice != minCandles[0].HighPrice;
                         break;
                     case EntryCondition.EMATightOrdered:
-                        takeProfitCondition[market] = (currPrice != minCandles[0].HighPrice && currPrice >= bollingerBand.Basis + bbDeviation * 2.5m) ||
+                        takeProfitCondition[market] = (currPrice != minCandles[0].HighPrice && currPrice >= bollingerBand.Basis + bbDeviation * 2) ||
                                                       ema7[0] < ema28[0];
                         break;
                     case EntryCondition.EMAReversed:
