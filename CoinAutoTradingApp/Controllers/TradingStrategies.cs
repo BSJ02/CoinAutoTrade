@@ -44,8 +44,8 @@ public partial class TradePage : ContentPage
         var prevEMA112 = ema112[1];
 
         var atr = Calculate.ATR(minCandles);
-        bool isEMAOrdered = prevEMA28 > prevEMA56 && prevEMA56 > prevEMA112;    // EMA 정배열
-        bool isEMATightOrdered = isEMAOrdered && prevEMA7 < currEMA7 && 
+        bool isEMAOrdered = prevEMA28 > prevEMA56 && prevEMA56 > prevEMA112 && prevEMA7 < currEMA7;    // EMA 정배열
+        bool isEMATightOrdered = isEMAOrdered && 
                                  prevEMA112 + atr >= prevEMA28;
         bool isEMAReversed = prevEMA112 > prevEMA56 && (prevEMA56 > prevEMA28 || Math.Abs(prevEMA56 - prevEMA28) / prevEMA56 <= 0.0005m);   // EMA 역배열
 
