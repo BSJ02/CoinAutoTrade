@@ -13,10 +13,12 @@ namespace CoinAutoTradingApp.Utilities
     public class Calculate
     {
         // RSI
-        public static decimal RSI(List<CandleMinute> candles, int period = 14)
+        public static List<decimal> RSI(List<CandleMinute> candles, int period = 14)
         {
+            var rsiList = new List<decimal>();
+
             if (candles == null || candles.Count < period + 1)
-                return 0;
+                return rsiList;
 
             var reversed = candles.ToList();
             reversed.Reverse(); // 과거 → 현재
@@ -35,7 +37,11 @@ namespace CoinAutoTradingApp.Utilities
             decimal avgGain = gain / period;
             decimal avgLoss = loss / period;
 
-            // 2. 현재 RSI만 계산 (가장 최신 봉 기준)
+            // 2. 첫 RSI 기록
+            decimal rs = avgLoss == 0 ? 0 : avgGain / avgLoss;
+            rsiList.Add(avgLoss == 0 ? 100 : Math.Round(100 - (100 / (1 + rs)), 2));
+
+            // 3. 이후 RSI 히스토리 기록
             for (int i = period + 1; i < reversed.Count; i++)
             {
                 var diff = reversed[i].TradePrice - reversed[i - 1].TradePrice;
@@ -44,13 +50,20 @@ namespace CoinAutoTradingApp.Utilities
 
                 avgGain = (avgGain * (period - 1) + currentGain) / period;
                 avgLoss = (avgLoss * (period - 1) + currentLoss) / period;
+
+                if (avgLoss == 0)
+                    rsiList.Add(100);
+                else if (avgGain == 0)
+                    rsiList.Add(0);
+                else
+                {
+                    rs = avgGain / avgLoss;
+                    rsiList.Add(Math.Round(100 - (100 / (1 + rs)), 2));
+                }
             }
 
-            if (avgLoss == 0) return 100;
-            if (avgGain == 0) return 0;
-
-            decimal rs = avgGain / avgLoss;
-            return 100 - (100 / (1 + rs));
+            rsiList.Reverse();
+            return rsiList;
         }
 
 
@@ -519,20 +532,13 @@ namespace CoinAutoTradingApp.Utilities
         }
 
 
-        private double Slope(List<decimal> ema, int timeDifference = 1, int startTime = 0)
+        public static decimal Slope((decimal x1, decimal y1) point1, (decimal x2, decimal y2) point2)
         {
-            // x1, x2는 시간 인덱스, y1, y2는 이동평균 값
-            decimal currEMA = ema[startTime];
-            decimal prevEMA = ema[startTime + timeDifference];
-            decimal emaChangeRatio = (currEMA - prevEMA) / prevEMA;  // 가격 변화율
+            if (point2.x2 == point1.x1)
+                throw new DivideByZeroException("x1과 x2가 같습니다. 기울기를 계산할 수 없습니다.");
 
-            decimal slope = emaChangeRatio * 100;  // 기울기 계산
-
-            // 기울기를 각도로 변환 (탄젠트에서 각도로 변환)
-            double angleInRadians = Math.Atan((double)slope);  // 기울기를 아크탄젠트로 변환 (라디안)
-            double angleInDegrees = angleInRadians * (180 / Math.PI);  // 라디안을 각도로 변환
-
-            return angleInDegrees;
+            decimal slope = (point2.y2 - point1.y1) / (point2.x2 - point1.x1);
+            return slope;
         }
     }
 }

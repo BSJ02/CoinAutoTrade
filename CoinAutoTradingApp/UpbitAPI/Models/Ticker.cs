@@ -6,80 +6,79 @@ namespace CoinAutoTradingApp.UpbitAPI.Models
     public class Ticker : IDisposable
     {
         [JsonProperty("market")]
-        public string Market { get; set; }         // 마켓 코드
+        public string Market { get; set; }
 
         [JsonProperty("trade_date")]
-        public string TradeDate { get; set; }      // 최근 거래 일자 (UTC)
+        public string TradeDate { get; set; }
 
         [JsonProperty("trade_time")]
-        public string TradeTime { get; set; }      // 최근 거래 시각 (UTC)
+        public string TradeTime { get; set; }
 
         [JsonProperty("trade_date_kst")]
-        public string TradeDateKst { get; set; }   // 최근 거래 일자 (KST)
+        public string TradeDateKst { get; set; }
 
         [JsonProperty("trade_time_kst")]
-        public string TradeTimeKst { get; set; }   // 최근 거래 시각 (KST)
+        public string TradeTimeKst { get; set; }
 
         [JsonProperty("trade_timestamp")]
-        public long? TradeTimestamp { get; set; }   // 체결 타임스탬프 (milliseconds)
+        public long? TradeTimestamp { get; set; }
 
         [JsonProperty("opening_price")]
-        public double OpeningPrice { get; set; }    // 시가
+        public decimal? OpeningPrice { get; set; }
 
         [JsonProperty("high_price")]
-        public double HighPrice { get; set; }       // 고가
+        public decimal? HighPrice { get; set; }
 
         [JsonProperty("low_price")]
-        public double LowPrice { get; set; }        // 저가
+        public decimal? LowPrice { get; set; }
 
         [JsonProperty("trade_price")]
-        public double TradePrice { get; set; }     // 종가
+        public decimal? TradePrice { get; set; }
 
         [JsonProperty("prev_closing_price")]
-        public double PrevClosingPrice { get; set; } // 전일 종가
+        public decimal? PrevClosingPrice { get; set; }
 
         [JsonProperty("change")]
-        public string Change { get; set; }          // EVEN : 보합, RISE : 상승, FALL : 하락
+        public string Change { get; set; }
 
         [JsonProperty("change_price")]
-        public double? ChangePrice { get; set; }     // 변화액
+        public decimal? ChangePrice { get; set; }
 
         [JsonProperty("change_rate")]
-        public double ChangeRate { get; set; }      // 변화율
+        public decimal? ChangeRate { get; set; }
 
         [JsonProperty("signed_change_price")]
-        public double SignedChangePrice { get; set; } // 부호가 있는 변화액
+        public decimal? SignedChangePrice { get; set; }
 
         [JsonProperty("signed_change_rate")]
-        public double SignedChangeRate { get; set; }  // 부호가 있는 변화율
+        public decimal? SignedChangeRate { get; set; }
 
         [JsonProperty("trade_volume")]
-        public double TradeVolume { get; set; }     // 가장 최근 거래량
+        public decimal? TradeVolume { get; set; }
 
         [JsonProperty("acc_trade_price")]
-        public double AccTradePrice { get; set; }    // 누적 거래 금액
+        public decimal? AccTradePrice { get; set; }
 
         [JsonProperty("acc_trade_price_24h")]
-        public double AccTradePrice24h { get; set; }    // 누적 거래 금액 24h
+        public decimal? AccTradePrice24h { get; set; }
 
         [JsonProperty("acc_trade_volume")]
-        public double AccTradeVolume { get; set; }   // 누적 거래량
+        public decimal? AccTradeVolume { get; set; }
 
         [JsonProperty("highest_52_week_price")]
-        public double Highest52WeekPrice { get; set; } // 52주 최고가
+        public decimal? Highest52WeekPrice { get; set; }
 
         [JsonProperty("highest_52_week_date")]
-        public string Highest52WeekDate { get; set; } // 52주 최고가 달성일
+        public string Highest52WeekDate { get; set; }
 
         [JsonProperty("lowest_52_week_price")]
-        public double Lowest52WeekPrice { get; set; }  // 52주 최저가
+        public decimal? Lowest52WeekPrice { get; set; }
 
         [JsonProperty("lowest_52_week_date")]
-        public string Lowest52WeekDate { get; set; }  // 52주 최저가 달성일
+        public string Lowest52WeekDate { get; set; }
 
         [JsonProperty("timestamp")]
-        public long Timestamp { get; set; }        // 타임스탬프 (milliseconds)
-
+        public long Timestamp { get; set; }
 
         public void Dispose() { }
     }

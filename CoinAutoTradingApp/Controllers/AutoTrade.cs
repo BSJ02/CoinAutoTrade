@@ -33,6 +33,7 @@ public partial class TradePage : ContentPage
 
     private Dictionary<string, bool> takeProfitCondition;
     private Dictionary<string, bool> stopLossCondition;
+    private Dictionary<string, decimal> stopLossPrice;
 
     private const decimal FeeRate = 0.0005m;  // 수수료
     private const double PendingOrderTimeLimit = 60; // 미체결 주문 취소 기간
@@ -74,7 +75,7 @@ public partial class TradePage : ContentPage
 
         foreach (var market in marketsSnapshot)
         {
-            var minCandles = API.GetCandles(market, (CandleUnit)5, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
+            var minCandles = API.GetCandles(market, (CandleUnit)15, DateTime.UtcNow, 200)?.Cast<CandleMinute>().ToList();
             if (minCandles == null || minCandles.Count < 200)
             {
                 AddDebugMessage($"⚠️ {market} 캔들 데이터 부족");
@@ -98,10 +99,7 @@ public partial class TradePage : ContentPage
             BollingerBand bollingerBand = Calculate.BollingerBand(minCandles, 20, 1);
             decimal bbDeviation = bollingerBand.UpperBand - bollingerBand.Basis;
 
-            var ema7 = Calculate.EMAHistory(minCandles, 7);
-            var ema28 = Calculate.EMAHistory(minCandles, 28);
-            var ema56 = Calculate.EMAHistory(minCandles, 56);
-            var ema112 = Calculate.EMAHistory(minCandles, 112);
+            var ema14 = Calculate.EMAHistory(minCandles, 14);
 
             // 미체결 주문 취소
             CancelPendingOrder(pendingBuyOrders, market, OrderSide.bid.ToString());
@@ -113,7 +111,7 @@ public partial class TradePage : ContentPage
             var tradeType = EvaluateTradeConditions(
                 currPrice, avgPrice,
                 bollingerBand, bbDeviation,
-                ema7, ema28, ema56, ema112,
+                ema14,
                 minCandles,
                 availableKRW >= TradeKRW && isBuyCondition
             );
@@ -131,6 +129,8 @@ public partial class TradePage : ContentPage
                     MakeOrderLimitBuy buyOrder = API.MakeOrderLimitBuy(market, currPrice, buyQuantity);
                     if (buyOrder != null)
                     {
+                        stopLossPrice[market] = minCandles[0].LowPrice;
+
                         totalBuyTrades++;
 
                         pendingBuyOrders[market] = (currPrice, DateTime.Now, "bid");
@@ -159,6 +159,7 @@ public partial class TradePage : ContentPage
 
                         takeProfitCondition.Remove(market);
                         stopLossCondition.Remove(market);
+                        stopLossPrice.Remove(market);
 
                         AddChatMessage($"🔴 매도: {market.Split('-')[1]} | {((currPrice - avgPrice * (1 + FeeRate * 2m)) / avgPrice * 100):N3}%");
 
@@ -178,22 +179,13 @@ public partial class TradePage : ContentPage
             {
                 switch (entryCondition[market])
                 {
-                    case EntryCondition.EMAOrdered:
-                        takeProfitCondition[market] = currPrice >= avgPrice + bbDeviation &&
-                                                      currPrice != minCandles[0].HighPrice;
-                        break;
-                    case EntryCondition.EMATightOrdered:
-                        takeProfitCondition[market] = (currPrice != minCandles[0].HighPrice && currPrice >= bollingerBand.Basis + bbDeviation * 2) ||
-                                                      ema7[0] < ema28[0];
-                        break;
-                    case EntryCondition.EMAReversed:
-                        takeProfitCondition[market] = (currPrice != minCandles[0].HighPrice && currPrice >= bollingerBand.Basis + bbDeviation * 2.5m) ||
-                                                      ema7[0] < ema28[0];
+                    case EntryCondition.Scalping:
+                        takeProfitCondition[market] = currPrice >= avgPrice + bbDeviation * 2;
                         break;
                     default:
                         break;
                 }
-                stopLossCondition[market] = currPrice < avgPrice - bbDeviation;
+                stopLossCondition[market] = currPrice < (stopLossPrice.ContainsKey(market) ? stopLossPrice[market] : 0);
             }
         }
     }

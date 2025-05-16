@@ -16,8 +16,6 @@ namespace CoinAutoTradingApp.Enum
     public enum EntryCondition
     {
         None,
-        EMAOrdered,      // EMA 정배열
-        EMATightOrdered, // EMA 수럼한 정배열
-        EMAReversed      // EMA 역배열
+        Scalping
     }
 }

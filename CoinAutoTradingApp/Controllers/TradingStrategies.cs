@@ -16,10 +16,10 @@ public partial class TradePage : ContentPage
     string buyCondition = "";
 
     // 매수 조건
-    public bool IsBuyConditionOne(decimal currPrice,
-                                  decimal bbBasis, decimal bbDeviation,
-                                  List<decimal> ema7, List<decimal> ema28, List<decimal> ema56, List<decimal> ema112,
-                                  List<CandleMinute> minCandles)
+    public bool IsBollingerBandBuySignal(decimal currPrice,
+                                         decimal bbBasis, decimal bbDeviation,
+                                         List<decimal> rsi, List<decimal> ema14,
+                                         List<CandleMinute> minCandles)
     {
         string market = minCandles[0].Market;
 
@@ -27,76 +27,91 @@ public partial class TradePage : ContentPage
             return false;
 
         // 0: 유동성 확인
-        var upperBand = bbBasis + bbDeviation;
-        var lowerBand = bbBasis - bbDeviation;
-        var bandGapPercent = (upperBand - lowerBand) / upperBand;
-        if (bandGapPercent < 0.01m)
+        var upperBand = bbBasis + bbDeviation * 2;
+        var bandGapPercent = (upperBand - bbBasis) / upperBand;
+        if (bandGapPercent < 0.005m)
             return false;
 
-        var currEMA7 = ema7[0];
-        var currEMA28 = ema28[0];
-        var currEMA56 = ema56[0];
-        var currEMA112 = ema112[0];
+        var currentEMA14 = ema14[0];
+        var currentRSI = rsi[0];
 
-        var prevEMA7 = ema7[1];
-        var prevEMA28 = ema28[1];
-        var prevEMA56 = ema56[1];
-        var prevEMA112 = ema112[1];
+        if (currentEMA14 < bbBasis)
+            return false;
 
-        var atr = Calculate.ATR(minCandles);
-        bool isEMAOrdered = prevEMA28 > prevEMA56 && prevEMA56 > prevEMA112 && prevEMA7 < currEMA7;    // EMA 정배열
-        bool isEMATightOrdered = isEMAOrdered && 
-                                 prevEMA112 + atr >= prevEMA28;
-        bool isEMAReversed = prevEMA112 > prevEMA56 && (prevEMA56 > prevEMA28 || Math.Abs(prevEMA56 - prevEMA28) / prevEMA56 <= 0.0005m);   // EMA 역배열
+        if (currentRSI < 55)
+            return false;
 
-        if (isEMAOrdered)
+        if (currPrice == minCandles[0].LowPrice || currPrice <= bbBasis)
+            return false;
+
+        return true;
+    }
+
+    public bool IsRSIBuySignal(decimal currPrice,
+                                    decimal bbBasis, decimal bbDeviation,
+                                    List<decimal> rsi,
+                                    List<CandleMinute> minCandles)
+    {
+        string market = minCandles[0].Market;
+
+        if (pendingBuyOrders.ContainsKey(market) && isHaveMarket)
+            return false;
+
+        var candleInterval = 1;
+        long currentMinute = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 60000;
+        int startIndex = -1;
+
+        (decimal time, decimal rsi) startRSI = (-1, 0);
+        
+        for (int i = 1; i < rsi.Count - 1; i++)
         {
-            bool isEntryPrice = false;
-            var currLowPrice = minCandles[0].LowPrice;
-            if (currPrice != currLowPrice)
-            { 
-                if (currEMA7 <= currEMA112)
-                {
-                    isEntryPrice = currPrice <= currEMA7 && currPrice > minCandles[0].OpeningPrice;
-                }
-                else if (currEMA7 <= currEMA56)
-                {
-                    isEntryPrice = currPrice <= currEMA112 && currPrice > minCandles[0].OpeningPrice;
-                }
-                else if (currEMA7 <= currEMA28)
-                {
-                    isEntryPrice = currPrice <= currEMA56 && currPrice > minCandles[0].OpeningPrice;
-                }
-            }
-
-            if (isEntryPrice)
+            var prevRSI = rsi[i + 1];
+            var currRSI = rsi[i];
+            var nextRSI = rsi[i - 1];
+            if (currRSI >= 65 && currRSI > prevRSI + 2 && currRSI > nextRSI + 2)
             {
-                if (isEMATightOrdered)
-                {
-                    entryCondition[market] = EntryCondition.EMATightOrdered;
-                    buyCondition = "정배열(수렴)";
-                }
-                else
-                {
-                    entryCondition[market] = EntryCondition.EMAOrdered;
-                    buyCondition = "정배열";
-                }
+                long xCoordinate = currentMinute - (i * candleInterval);
+                startIndex = i;
 
-                return true;
+                startRSI = (xCoordinate, currRSI);
+                break;
             }
         }
-        else if (isEMAReversed)
+
+        (decimal time, decimal rsi) trendPoint = (-1, 0);
+        for (int i = startIndex; i > 0; i--)
         {
-            bool isGoldenCross = currEMA7 > currEMA112;
-            bool isEntryPrice = currPrice < currEMA112 * 1.0005m && currPrice != minCandles[0].LowPrice;
+            var currRSI = rsi[i];
+            if (startRSI.rsi - 30 < currRSI)
+                continue;
 
-            if (isGoldenCross && isEntryPrice)
+            var prevRSI = rsi[i + 1];
+            var nextRSI = rsi[i - 1];
+            if (currRSI > prevRSI + 2 && currRSI > nextRSI + 2)
             {
-                entryCondition[market] = EntryCondition.EMAReversed;
-                buyCondition = "역배열";
-
-                return true;
+                if (currRSI > trendPoint.rsi)
+                {
+                    long xCoordinate = currentMinute - (i * candleInterval);
+                    trendPoint = (xCoordinate, currRSI);
+                }
             }
+        }
+
+        if (startRSI.time < 0 || trendPoint.time < 0)
+            return false;
+
+        decimal slope = Calculate.Slope(startRSI, trendPoint);
+        decimal intercept = trendPoint.rsi - slope * trendPoint.time;
+
+        decimal predictedRSI = slope * currentMinute + intercept;
+        decimal currentRSI = rsi[0];
+        decimal previousRSI = rsi[1];
+        if (currentRSI > predictedRSI && predictedRSI > previousRSI)
+        {
+            entryCondition[market] = EntryCondition.Scalping;
+            buyCondition = "RSI 추세선 돌파";
+
+            return true;
         }
 
         return false;
@@ -122,11 +137,11 @@ public partial class TradePage : ContentPage
 
     public TradeType EvaluateTradeConditions(decimal currPrice, decimal avgPrice,
                                              BollingerBand bollingerBand, decimal bbDeviation,
-                                             List<decimal> ema7, List<decimal> ema28, List<decimal> ema56, List<decimal> ema112,
+                                             List<decimal> ema14,
                                              List<CandleMinute> minCandles, bool isKRWHeld)
     {
         // (매수)
-        bool isBuyConditionOne = IsBuyConditionOne(currPrice, bollingerBand.Basis, bbDeviation, ema7, ema28, ema56, ema112, minCandles) && isKRWHeld;
+        bool isScalpingBuySignal = IsBollingerBandBuySignal(currPrice, bollingerBand.Basis, bbDeviation, Calculate.RSI(minCandles), ema14, minCandles) && isKRWHeld;
 
         // 익절 (매도)
         bool isTakeProfit = ShouldTakeProfit(minCandles);
@@ -148,7 +163,7 @@ public partial class TradePage : ContentPage
         }
 
         // 매수
-        if (isBuyConditionOne)
+        if (isScalpingBuySignal)
         {
             return ExecuteBuyOrder($"{buyCondition}"); // 매수
         }

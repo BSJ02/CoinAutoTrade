@@ -119,16 +119,6 @@ namespace CoinAutoTradingApp.UpbitAPI
             return account.Balance;
         }
 
-        public double GetCurrentPrice(string market)
-        {
-            var ticker = GetTicker(market); // ✅ 업비트 API에서 현재 가격 가져오기
-            if (ticker != null && ticker.Count > 0)
-            {
-                return ticker[0].TradePrice;
-            }
-            return 0;
-        }
-
 
 
         public OrderChance GetOrderChance(string market)

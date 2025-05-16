@@ -40,6 +40,7 @@ public partial class TradePage : ContentPage
 
         takeProfitCondition = new Dictionary<string, bool>();
         stopLossCondition = new Dictionary<string, bool>();
+        stopLossPrice = new Dictionary<string, decimal>();
 
         debugMessageResetTime = DateTime.Now;
         resetTimeLimit = 120;
